@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Numerics;
 using System.Text;
+using HectorSLAM.Map;
+using HectorSLAM.Scan;
 
-namespace HectorSLAM.Map
+namespace HectorSLAM.Main
 {
     public interface IMapRepresentation
     {
@@ -11,8 +13,8 @@ namespace HectorSLAM.Map
         int MapLevels { get; }
         void Reset();
         GridMap GetGridMap(int mapLevel = 0);
-        void AddMapMutex(int i, IMapLockerInterface mapMutex);
-        IMapLockerInterface GetMapMutex(int i);
+        void AddMapMutex(int i, IMapLocker mapMutex);
+        IMapLocker GetMapMutex(int i);
         void OnMapUpdated();
         Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, Matrix4x4 covMatrix);
         void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld);

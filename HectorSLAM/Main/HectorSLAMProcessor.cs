@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Text;
 using HectorSLAM.Map;
+using HectorSLAM.Matcher;
 
-namespace HectorSLAM
+namespace HectorSLAM.Main
 {
     public class HectorSLAMProcessor
     {
@@ -62,7 +63,7 @@ namespace HectorSLAM
         {
             //std::cout << "\nph:\n" << poseHintWorld << "\n";
 
-            Eigen::Vector3f newPoseEstimateWorld;
+            Vector3 newPoseEstimateWorld;
 
             if (!map_without_matching)
             {

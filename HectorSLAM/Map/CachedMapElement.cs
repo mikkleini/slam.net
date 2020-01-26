@@ -4,9 +4,9 @@ using System.Text;
 
 namespace HectorSLAM.Map
 {
-    public interface IMapLocker
+    public class CachedMapElement
     {
-        void LockMap();
-        void UnlockMap();
+        public float value;
+        public int index;
     }
 }

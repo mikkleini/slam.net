@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using HectorSLAM.Map;
 
-namespace HectorSLAM.Map
+namespace HectorSLAM.Main
 {
     public class MapRepMultiMap : IMapRepresentation
     {
@@ -15,7 +16,7 @@ namespace HectorSLAM.Map
         MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY, int numDepth, Vector2 startCoords, DrawInterface* drawInterfaceIn, HectorDebugInfoInterface* debugInterfaceIn)
         {
             //unsigned int numDepth = 3;
-            Eigen::Vector2i resolution(mapSizeX, mapSizeY);
+            Point resolution(mapSizeX, mapSizeY);
 
                 float totalMapSizeX = mapResolution * static_cast<float>(mapSizeX);
                 float mid_offset_x = totalMapSizeX * startCoords.x();
@@ -25,7 +26,7 @@ namespace HectorSLAM.Map
 
             for (unsigned int i = 0; i<numDepth; ++i){
               std::cout << "HectorSM map lvl " << i << ": cellLength: " << mapResolution << " res x:" << resolution.x() << " res y: " << resolution.y() << "\n";
-              GridMap* gridMap = new hectorslam::GridMap(mapResolution, resolution, Eigen::Vector2f(mid_offset_x, mid_offset_y));
+              GridMap* gridMap = new hectorslam::GridMap(mapResolution, resolution, Vector2(mid_offset_x, mid_offset_y));
                 OccGridMapUtilConfig<GridMap>* gridMapUtil = new OccGridMapUtilConfig<GridMap>(gridMap);
                 ScanMatcher<OccGridMapUtilConfig<GridMap>>* scanMatcher = new hectorslam::ScanMatcher<OccGridMapUtilConfig<GridMap>>(drawInterfaceIn, debugInterfaceIn);
 
@@ -73,11 +74,11 @@ virtual void onMapUpdated()
     }
 }
 
-virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix)
+virtual Vector3 matchData(const Vector3& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix)
 {
     size_t size = mapContainer.size();
 
-    Eigen::Vector3f tmp(beginEstimateWorld);
+    Vector3 tmp(beginEstimateWorld);
 
     for (int index = size - 1; index >= 0; --index)
     {
@@ -95,7 +96,7 @@ virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, con
     return tmp;
 }
 
-virtual void updateByScan(const DataContainer& dataContainer, const Eigen::Vector3f& robotPoseWorld)
+virtual void updateByScan(const DataContainer& dataContainer, const Vector3& robotPoseWorld)
 {
     unsigned int size = mapContainer.size();
 
