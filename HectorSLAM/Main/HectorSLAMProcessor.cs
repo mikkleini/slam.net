@@ -14,7 +14,7 @@ namespace HectorSLAM.Main
         private readonly IDrawInterface drawInterface;
         private readonly IHectorDebugInfo debugInterface;
 
-        public IMapRepresentation MapRep { get; protected set; }
+        public MapRepMultiMap MapRep { get; protected set; }
         public Vector3 LastMapUpdatePose { get; protected set; }
         public Vector3 LastScanMatchPose { get; protected set; }
         public Matrix4x4 LastScanMatchCov { get; protected set; }
@@ -100,12 +100,12 @@ namespace HectorSLAM.Main
 
             if (drawInterface != null)
             {
-                GridMap gridMapRef = MapRep.GetGridMap();
+                GridMap gridMapRef = MapRep.GetGridMap(0);
                 drawInterface.SetColor(1.0, 0.0, 0.0);
                 drawInterface.SetScale(0.15);
 
                 drawInterface.DrawPoint(gridMapRef.GetWorldCoords(Vector2.Zero));
-                drawInterface.DrawPoint(gridMapRef.GetWorldCoords(gridMapRef.MapDimensions.ToVector2()));
+                drawInterface.DrawPoint(gridMapRef.GetWorldCoords(gridMapRef.Dimensions.ToVector2()));
                 drawInterface.DrawPoint(new Vector2(1.0f, 1.0f));
 
                 drawInterface.SendAndResetData();

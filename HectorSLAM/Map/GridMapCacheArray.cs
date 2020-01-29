@@ -46,7 +46,7 @@ namespace HectorSLAM.Map
          * @param val Reference to a float the data is written to if available
          * @return Indicates if cached data is available
          */
-        public bool ContainsCachedData(int index, ref float value)
+        public bool ContainsCachedData(int index, out float value)
         {
             if (array[index].index == currentIndex)
             {
@@ -55,6 +55,7 @@ namespace HectorSLAM.Map
             }
             else
             {
+                value = float.NaN;
                 return false;
             }
         }

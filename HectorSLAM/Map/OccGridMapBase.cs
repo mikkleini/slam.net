@@ -10,7 +10,7 @@ namespace HectorSLAM.Map
 {
     public class OccGridMapBase<T> : GridMapBase<T> where T : LogOddsCell
     {
-        protected GridMapLogOddsFunctions concreteGridFunctions;
+        protected GridMapLogOddsFunctions gridFunctions;
         protected int currUpdateIndex = 0;
         protected int currMarkOccIndex = -1;
         protected int currMarkFreeIndex = -1;
@@ -24,37 +24,37 @@ namespace HectorSLAM.Map
         public OccGridMapBase(float mapResolution, Point size, Vector2 offset)
             : base(mapResolution, size, offset)
         {
-            concreteGridFunctions = new GridMapLogOddsFunctions();
+            gridFunctions = new GridMapLogOddsFunctions();
         }
 
         public void UpdateSetOccupied(int index)
         {
-            concreteGridFunctions.UpdateSetOccupied(GetCell(index));
+            gridFunctions.UpdateSetOccupied(GetCell(index));
         }
 
         public void UpdateSetFree(int index)
         {
-            concreteGridFunctions.UpdateSetFree(GetCell(index));
+            gridFunctions.UpdateSetFree(GetCell(index));
         }
 
         public void UpdateUnsetFree(int index)
         {
-            concreteGridFunctions.UpdateUnsetFree(GetCell(index));
+            gridFunctions.UpdateUnsetFree(GetCell(index));
         }
 
         public float GetGridProbabilityMap(int index)
         {
-            return concreteGridFunctions.GetGridProbability(GetCell(index));
+            return gridFunctions.GetGridProbability(GetCell(index));
         }
 
         public void SetUpdateFreeFactor(float factor)
         {
-            concreteGridFunctions.SetUpdateFreeFactor(factor);
+            gridFunctions.SetUpdateFreeFactor(factor);
         }
 
         public void SetUpdateOccupiedFactor(float factor)
         {
-            concreteGridFunctions.SetUpdateOccupiedFactor(factor);
+            gridFunctions.SetUpdateOccupiedFactor(factor);
         }
 
         public bool IsOccupied(int xMap, int yMap)
@@ -81,7 +81,7 @@ namespace HectorSLAM.Map
         {
             LogOddsCell temp = new LogOddsCell();
             temp.Reset();
-            return concreteGridFunctions.GetGridProbability(temp);
+            return gridFunctions.GetGridProbability(temp);
         }
 
         /**
@@ -105,7 +105,7 @@ namespace HectorSLAM.Map
             Vector2 scanBeginMapf = Vector2.Transform(dataContainer.Origo, poseTransform);
 
             // Get integer vector of laser beams start point
-            Point scanBeginMapi = scanBeginMapf.ToPoint();
+            Point scanBeginMapi = scanBeginMapf.ToRoundPoint();
 
             //std::cout << "\n maxD: " << maxDist << " num: " << numValidElems << "\n";
 
@@ -117,7 +117,7 @@ namespace HectorSLAM.Map
                 //std::cout << "\ns\n" << scanEndMapf << "\n";
 
                 //Get integer map coordinates of current beam endpoint
-                Point scanEndMapi = scanEndMapf.ToPoint();
+                Point scanEndMapi = scanEndMapf.ToRoundPoint();
 
                 //Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates
                 if (scanBeginMapi != scanEndMapi)
@@ -154,9 +154,9 @@ namespace HectorSLAM.Map
             int abs_dy = Math.Abs(dy);
 
             int offset_dx = Math.Sign(dx);
-            int offset_dy = Math.Sign(dy) * MapDimensions.X;
+            int offset_dy = Math.Sign(dy) * Dimensions.X;
 
-            int startOffset = beginMap.Y * MapDimensions.X + beginMap.X;
+            int startOffset = beginMap.Y * Dimensions.X + beginMap.X;
 
             //if x is dominant
             if (abs_dx >= abs_dy)
@@ -171,7 +171,7 @@ namespace HectorSLAM.Map
                 Bresenham2D(abs_dy, abs_dx, error_x, offset_dy, offset_dx, startOffset);
             }
 
-            int endOffset = endMap.Y * MapDimensions.X + endMap.X;
+            int endOffset = endMap.Y * Dimensions.X + endMap.X;
 
             BresenhamCellOcc(endOffset);
         }
@@ -182,7 +182,7 @@ namespace HectorSLAM.Map
 
             if (cell.UpdateIndex < currMarkFreeIndex)
             {
-                concreteGridFunctions.UpdateSetFree(cell);
+                gridFunctions.UpdateSetFree(cell);
                 cell.UpdateIndex = currMarkFreeIndex;
             }
         }
@@ -197,10 +197,10 @@ namespace HectorSLAM.Map
                 //if this cell has been updated as free in the current iteration, revert this
                 if (cell.UpdateIndex == currMarkFreeIndex)
                 {
-                    concreteGridFunctions.UpdateUnsetFree(cell);
+                    gridFunctions.UpdateUnsetFree(cell);
                 }
 
-                concreteGridFunctions.UpdateSetOccupied(cell);
+                gridFunctions.UpdateSetOccupied(cell);
                 //std::cout << " setOcc " << "\n";
                 cell.UpdateIndex = currMarkOccIndex;
             }

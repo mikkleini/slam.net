@@ -51,7 +51,7 @@ namespace HectorSLAM.Main
             mapContainer.ForEach(m => m.Reset());
         }
 
-        public GridMap GetGridMap(int mapLevel)
+        public GridMap GetGridMap(int mapLevel = 0)
         {
             return mapContainer[mapLevel].GridMap;
         }

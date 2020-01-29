@@ -29,11 +29,21 @@ namespace HectorSLAM.Util
         }
 
         /// <summary>
+        /// Vector2 to Point with flooring
+        /// </summary>
+        /// <param name="vector">Vector3</param>
+        /// <returns>Vector2</returns>
+        public static Point ToFloorPoint(this Vector2 vector)
+        {
+            return new Point((int)MathF.Floor(vector.X), (int)MathF.Floor(vector.Y));
+        }
+
+        /// <summary>
         /// Vector2 to Point with rounding
         /// </summary>
         /// <param name="vector">Vector3</param>
         /// <returns>Vector2</returns>
-        public static Point ToPoint(this Vector2 vector)
+        public static Point ToRoundPoint(this Vector2 vector)
         {
             return new Point((int)MathF.Round(vector.X), (int)MathF.Round(vector.Y));
         }

@@ -19,7 +19,7 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Map dimensions
         /// </summary>
-        public Point MapDimensions { get; internal set; } = new Point(-1, -1);
+        public Point Dimensions { get; internal set; } = new Point(-1, -1);
 
         /// <summary>
         /// Cell length
@@ -29,7 +29,7 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Map limits
         /// </summary>
-        public Vector2 MapLimitsF => new Vector2(MapDimensions.X - 2.0f, MapDimensions.Y - 2.0f);
+        public Vector2 MapLimitsF => new Vector2(Dimensions.X - 2.0f, Dimensions.Y - 2.0f);
         
         /// <summary>
         /// Constructor
@@ -42,12 +42,12 @@ namespace HectorSLAM.Map
         /// Constructor
         /// </summary>
         /// <param name="topLeftOffset">Top-left offset</param>
-        /// <param name="mapDimensions">Map dimensions</param>
+        /// <param name="dimensions">Map dimensions</param>
         /// <param name="cellLength">Cell length</param>
-        public MapDimensionProperties(Vector2 topLeftOffset, Point mapDimensions, float cellLength)
+        public MapDimensionProperties(Vector2 topLeftOffset, Point dimensions, float cellLength)
         {
             TopLeftOffset = topLeftOffset;
-            MapDimensions = mapDimensions;
+            Dimensions = dimensions;
             CellLength = cellLength;
         }
 
@@ -59,7 +59,7 @@ namespace HectorSLAM.Map
         /// <returns>true if equal</returns>
         public static bool operator ==(MapDimensionProperties a, MapDimensionProperties b)
         {
-            return (a.TopLeftOffset == b.TopLeftOffset) && (a.MapDimensions == b.MapDimensions) && (a.CellLength == b.CellLength);
+            return (a.TopLeftOffset == b.TopLeftOffset) && (a.Dimensions == b.Dimensions) && (a.CellLength == b.CellLength);
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace HectorSLAM.Map
         /// <returns>true if equal</returns>
         public static bool operator !=(MapDimensionProperties a, MapDimensionProperties b)
         {
-            return (a.TopLeftOffset != b.TopLeftOffset) || (a.MapDimensions != b.MapDimensions) || (a.CellLength != b.CellLength);
+            return (a.TopLeftOffset != b.TopLeftOffset) || (a.Dimensions != b.Dimensions) || (a.CellLength != b.CellLength);
         }
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace HectorSLAM.Map
         /// <returns>true if equal dimensions</returns>
         public bool HasEqualDimensionProperties(MapDimensionProperties other)
         {
-            return (MapDimensions == other.MapDimensions);
+            return (Dimensions == other.Dimensions);
         }
 
         /// <summary>
@@ -124,7 +124,7 @@ namespace HectorSLAM.Map
         /// <returns></returns>
         public override int GetHashCode()
         {
-            return TopLeftOffset.GetHashCode() + 1000 * MapDimensions.GetHashCode() + 4444 * CellLength.GetHashCode();
+            return TopLeftOffset.GetHashCode() + 1000 * Dimensions.GetHashCode() + 4444 * CellLength.GetHashCode();
         }
     }
 }

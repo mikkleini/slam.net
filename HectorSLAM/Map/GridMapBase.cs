@@ -20,10 +20,9 @@ namespace HectorSLAM.Map
         public Matrix4x4 worldTmap;     ///< Homogenous transform from map to world coordinates.
         public Matrix4x4 mapTworld;     ///< Homogenous transform from world to map coordinates.
 
-        public MapDimensionProperties MapDimensionProperties { get; }        
-
-        public Point MapDimensions => MapDimensionProperties.MapDimensions;
-        internal int sizeX => MapDimensions.X;
+        public MapDimensionProperties DimensionProperties { get; }
+        public Point Dimensions => DimensionProperties.Dimensions;
+        private int sizeX => Dimensions.X;
 
         /**
         * Indicates if given x and y are within map bounds
@@ -31,7 +30,7 @@ namespace HectorSLAM.Map
         */
         public bool HasGridValue(int x, int y)
         {
-            return (x >= 0) && (y >= 0) && (x < MapDimensions.X) && (y < MapDimensions.Y);
+            return (x >= 0) && (y >= 0) && (x < Dimensions.X) && (y < Dimensions.Y);
         }
 
 
@@ -45,7 +44,7 @@ namespace HectorSLAM.Map
          */
         public void Clear()
         {
-            int size = MapDimensions.X * MapDimensions.Y;
+            int size = Dimensions.X * Dimensions.Y;
 
             for (int i = 0; i < size; ++i)
             {
@@ -72,7 +71,7 @@ namespace HectorSLAM.Map
         public void AllocateArray(Point newMapDims)
         {
             mapArray = new T[newMapDims.X * newMapDims.Y];
-            MapDimensionProperties.MapDimensions = newMapDims;
+            DimensionProperties.Dimensions = newMapDims;
         }
 
         public void DeleteArray()
@@ -80,7 +79,7 @@ namespace HectorSLAM.Map
             if (mapArray != null)
             {
                 mapArray = null;
-                MapDimensionProperties.MapDimensions = new Point(-1, -1);
+                DimensionProperties.Dimensions = new Point(-1, -1);
             }
         }
 
@@ -95,7 +94,7 @@ namespace HectorSLAM.Map
 
         public void SetMapGridSize(Point newMapDims)
         {
-            if (newMapDims != MapDimensions)
+            if (newMapDims != Dimensions)
             {
                 DeleteArray();
                 AllocateArray(newMapDims);
@@ -109,7 +108,7 @@ namespace HectorSLAM.Map
         public GridMapBase(GridMapBase<T> other)
         {
             // TODO:
-            AllocateArray(other.MapDimensions);
+            AllocateArray(other.Dimensions);
             //*this = other;
         }
 
@@ -185,13 +184,13 @@ namespace HectorSLAM.Map
         private void SetDimensionProperties(MapDimensionProperties newMapDimProps)
         {
             //Grid map cell number has changed
-            if (!newMapDimProps.HasEqualDimensionProperties(MapDimensionProperties))
+            if (!newMapDimProps.HasEqualDimensionProperties(DimensionProperties))
             {
-                SetMapGridSize(newMapDimProps.MapDimensions);
+                SetMapGridSize(newMapDimProps.Dimensions);
             }
 
             //Grid map transformation/cell size has changed
-            if (!newMapDimProps.HasEqualTransformationProperties(MapDimensionProperties))
+            if (!newMapDimProps.HasEqualTransformationProperties(DimensionProperties))
             {
                 SetMapTransformation(newMapDimProps.TopLeftOffset, newMapDimProps.CellLength);
             }
@@ -205,8 +204,8 @@ namespace HectorSLAM.Map
         */
         private void SetMapTransformation(Vector2 topLeftOffset, float cellLength)
         {
-            MapDimensionProperties.CellLength = cellLength;
-            MapDimensionProperties.TopLeftOffset = topLeftOffset;
+            DimensionProperties.CellLength = cellLength;
+            DimensionProperties.TopLeftOffset = topLeftOffset;
 
             ScaleToMap = 1.0f / cellLength;
 
@@ -238,14 +237,11 @@ namespace HectorSLAM.Map
             int xMinTemp = upperStart;
             int yMinTemp = upperStart;
 
-            int sizeX = MapDimensions.X;
-            int sizeY = MapDimensions.Y;
-
-            for (int x = 0; x<sizeX; ++x)
+            for (int x = 0; x < Dimensions.X; ++x)
             {
-                for (int y = 0; y<sizeY; ++y)
+                for (int y = 0; y < Dimensions.Y; ++y)
                 {
-                    if (mapArray[y * sizeX + x].Value != 0.0f)
+                    if (mapArray[y * Dimensions.X + x].Value != 0.0f)
                     {
                         if (x > xMaxTemp)
                         {
