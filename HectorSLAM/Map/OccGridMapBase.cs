@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HectorSLAM.Scan;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
@@ -6,16 +7,23 @@ using System.Text;
 
 namespace HectorSLAM.Map
 {
-    public class OccGridMapBase<ConcreteCellType, ConcreteGridFunctions> : GridMapBase<ConcreteCellType> where ConcreteCellType : ICell
+    public class OccGridMapBase<T> : GridMapBase<T> where T : LogOddsCell
     {
-        protected ConcreteGridFunctions concreteGridFunctions;
+        protected GridMapLogOddsFunctions concreteGridFunctions;
         protected int currUpdateIndex = 0;
         protected int currMarkOccIndex = -1;
         protected int currMarkFreeIndex = -1;
 
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="mapResolution">Map resolution</param>
+        /// <param name="size">Map size</param>
+        /// <param name="offset">Offset</param>
         public OccGridMapBase(float mapResolution, Point size, Vector2 offset)
             : base(mapResolution, size, offset)
         {
+            concreteGridFunctions = new GridMapLogOddsFunctions();
         }
 
         public void UpdateSetOccupied(int index)
@@ -35,44 +43,44 @@ namespace HectorSLAM.Map
 
         public float GetGridProbabilityMap(int index)
         {
-            return concreteGridFunctions.getGridProbability(this->getCell(index));
+            return concreteGridFunctions.GetGridProbability(GetCell(index));
         }
 
-        bool IsOccupied(int xMap, int yMap)
+        public void SetUpdateFreeFactor(float factor)
         {
-            return (this->getCell(xMap, yMap).isOccupied());
+            concreteGridFunctions.SetUpdateFreeFactor(factor);
         }
 
-        bool IsFree(int xMap, int yMap)
+        public void SetUpdateOccupiedFactor(float factor)
         {
-            return (this->getCell(xMap, yMap).isFree());
+            concreteGridFunctions.SetUpdateOccupiedFactor(factor);
         }
 
-            bool isOccupied(int index)
-          {
-            return (this->getCell(index).isOccupied());
-            }
-
-            bool isFree(int index) const
-          {
-            return (this->getCell(index).isFree());
-            }
-
-            float getObstacleThreshold() const
-          {
-            ConcreteCellType temp;
-            temp.resetGridCell();
-            return concreteGridFunctions.getGridProbability(temp);
-          }
-
-        void setUpdateFreeFactor(float factor)
+        public bool IsOccupied(int xMap, int yMap)
         {
-            concreteGridFunctions.setUpdateFreeFactor(factor);
+            return GetCell(xMap, yMap).IsOccupied;
         }
 
-        void setUpdateOccupiedFactor(float factor)
+        public bool IsFree(int xMap, int yMap)
         {
-            concreteGridFunctions.setUpdateOccupiedFactor(factor);
+            return GetCell(xMap, yMap).IsFree;
+        }
+
+        public bool IsOccupied(int index)
+        {
+            return GetCell(index).IsOccupied;
+        }
+
+        public bool IsFree(int index)
+        {
+            return GetCell(index).IsFree;
+        }
+
+        public float GetObstacleThreshold()
+        {
+            LogOddsCell temp = new LogOddsCell();
+            temp.Reset();
+            return concreteGridFunctions.GetGridProbability(temp);
         }
 
         /**
@@ -80,136 +88,120 @@ namespace HectorSLAM.Map
          * @param dataContainer Contains the laser scan data
          * @param robotPoseWorld The 2D robot pose in world coordinates
          */
-        void updateByScan(const DataContainer& dataContainer, const Vector3& robotPoseWorld)
+        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
         {
             currMarkFreeIndex = currUpdateIndex + 1;
             currMarkOccIndex = currUpdateIndex + 2;
 
-            //Get pose in map coordinates from pose in world coordinates
-            Vector3 mapPose(this->getMapCoordsPose(robotPoseWorld));
+            // Get pose in map coordinates from pose in world coordinates
+            Vector3 mapPose = GetMapCoordsPose(robotPoseWorld);
 
-            //Get a 2D homogenous transform that can be left-multiplied to a robot coordinates vector to get world coordinates of that vector
-            Eigen::Affine2f poseTransform((Eigen::Translation2f(
-                                                mapPose[0], mapPose[1]) * Eigen::Rotation2Df(mapPose[2])));
+            // Get a 2D homogenous transform that can be left-multiplied to a robot coordinates vector to get world coordinates of that vector
+            Matrix4x4 poseTransform = Matrix4x4.CreateTranslation(mapPose.X, mapPose.Y, 0) * Matrix4x4.CreateRotationZ(mapPose.Z);
+            //Eigen::Affine2f poseTransform((Eigen::Translation2f(mapPose[0], mapPose[1]) * Eigen::Rotation2Df(mapPose[2])));
 
-            //Get start point of all laser beams in map coordinates (same for alle beams, stored in robot coords in dataContainer)
-            Vector2 scanBeginMapf(poseTransform* dataContainer.getOrigo());
+            // Get start point of all laser beams in map coordinates (same for alle beams, stored in robot coords in dataContainer)
+            Vector2 scanBeginMapf = Vector2.Transform(dataContainer.Origo, poseTransform);
 
-            //Get integer vector of laser beams start point
-            Point scanBeginMapi(scanBeginMapf[0] +0.5f, scanBeginMapf[1] + 0.5f);
-
-            //Get number of valid beams in current scan
-            int numValidElems = dataContainer.getSize();
+            // Get integer vector of laser beams start point
+            Point scanBeginMapi = new Point((int)(scanBeginMapf.X + 0.5f), (int)(scanBeginMapf.Y + 0.5f));
 
             //std::cout << "\n maxD: " << maxDist << " num: " << numValidElems << "\n";
 
             //Iterate over all valid laser beams
-            for (int i = 0; i < numValidElems; ++i)
+            for (int i = 0; i < dataContainer.Count; ++i)
             {
-
                 //Get map coordinates of current beam endpoint
-                Vector2 scanEndMapf(poseTransform* (dataContainer.getVecEntry(i)));
-            //std::cout << "\ns\n" << scanEndMapf << "\n";
+                Vector2 scanEndMapf = Vector2.Transform(dataContainer[i], poseTransform);
+                //std::cout << "\ns\n" << scanEndMapf << "\n";
 
-            //add 0.5 to beam endpoint vector for following integer cast (to round, not truncate)
-            scanEndMapf.array() += (0.5f);
+                //Get integer map coordinates of current beam endpoint
+                Point scanEndMapi = new Point((int)(scanEndMapf.X + 0.5f), (int)(scanEndMapf.Y + 0.5f));
 
-            //Get integer map coordinates of current beam endpoint
-            Point scanEndMapi(scanEndMapf.cast<int>());
-
-            //Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates
-            if (scanBeginMapi != scanEndMapi)
-            {
-                updateLineBresenhami(scanBeginMapi, scanEndMapi);
+                //Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates
+                if (scanBeginMapi != scanEndMapi)
+                {
+                    UpdateLineBresenhami(scanBeginMapi, scanEndMapi);
+                }
             }
-        }
 
             //Tell the map that it has been updated
-            this->setUpdated();
+            SetUpdated();
 
             //Increase update index (used for updating grid cells only once per incoming scan)
             currUpdateIndex += 3;
-          }
+        }
 
-void updateLineBresenhami( const Point& beginMap, const Point& endMap, unsigned int max_length = UINT_MAX)
-{
+        private void UpdateLineBresenhami(Point beginMap, Point endMap, uint max_length = uint.MaxValue)
+        {
+            // Check if beam start point is inside map, cancel update if this is not the case
+            if (!HasGridValue(beginMap.X, beginMap.Y))
+            {
+                return;
+            }
 
-    int x0 = beginMap[0];
-    int y0 = beginMap[1];
+            // Check if beam end point is inside map, cancel update if this is not the case
+            if (!HasGridValue(endMap.X, endMap.Y))
+            {
+                return;
+            }
 
-    //check if beam start point is inside map, cancel update if this is not the case
-    if ((x0 < 0) || (x0 >= this->getSizeX()) || (y0 < 0) || (y0 >= this->getSizeY()))
-    {
-        return;
-    }
+            int dx = endMap.X - beginMap.X;
+            int dy = endMap.Y - beginMap.Y;
 
-    int x1 = endMap[0];
-    int y1 = endMap[1];
+            int abs_dx = Math.Abs(dx);
+            int abs_dy = Math.Abs(dy);
 
-    //std::cout << " x: "<< x1 << " y: " << y1 << " length: " << length << "     ";
+            int offset_dx = Math.Sign(dx);
+            int offset_dy = Math.Sign(dy) * MapDimensions.X;
 
-    //check if beam end point is inside map, cancel update if this is not the case
-    if ((x1 < 0) || (x1 >= this->getSizeX()) || (y1 < 0) || (y1 >= this->getSizeY()))
-    {
-        return;
-    }
+            int startOffset = beginMap.Y * MapDimensions.X + beginMap.X;
 
-    int dx = x1 - x0;
-    int dy = y1 - y0;
+            //if x is dominant
+            if (abs_dx >= abs_dy)
+            {
+                int error_y = abs_dx / 2;
+                Bresenham2D(abs_dx, abs_dy, error_y, offset_dx, offset_dy, startOffset);
+            }
+            else
+            {
+                //otherwise y is dominant
+                int error_x = abs_dy / 2;
+                Bresenham2D(abs_dy, abs_dx, error_x, offset_dy, offset_dx, startOffset);
+            }
 
-    unsigned int abs_dx = abs(dx);
-    unsigned int abs_dy = abs(dy);
+            int endOffset = endMap.Y * MapDimensions.X + endMap.X;
 
-    int offset_dx = util::sign(dx);
-    int offset_dy = util::sign(dy) * this->sizeX;
-
-    unsigned int startOffset = beginMap.y() * this->sizeX + beginMap.x();
-
-    //if x is dominant
-    if (abs_dx >= abs_dy)
-    {
-        int error_y = abs_dx / 2;
-        bresenham2D(abs_dx, abs_dy, error_y, offset_dx, offset_dy, startOffset);
-    }
-    else
-    {
-        //otherwise y is dominant
-        int error_x = abs_dy / 2;
-        bresenham2D(abs_dy, abs_dx, error_x, offset_dy, offset_dx, startOffset);
-    }
-
-    unsigned int endOffset = endMap.y() * this->sizeX + endMap.x();
-    this->bresenhamCellOcc(endOffset);
-
-}
+            BresenhamCellOcc(endOffset);
+        }
 
         private void BresenhamCellFree(int offset)
         {
-            ConcreteCellType & cell(this->getCell(offset));
+            LogOddsCell cell = GetCell(offset);
 
-            if (cell.updateIndex < currMarkFreeIndex)
+            if (cell.UpdateIndex < currMarkFreeIndex)
             {
-                concreteGridFunctions.updateSetFree(cell);
-                cell.updateIndex = currMarkFreeIndex;
+                concreteGridFunctions.UpdateSetFree(cell);
+                cell.UpdateIndex = currMarkFreeIndex;
             }
         }
 
         private void BresenhamCellOcc(int offset)
         {
-            ConcreteCellType & cell(this->getCell(offset));
+            T cell = GetCell(offset);
 
-            if (cell.updateIndex < currMarkOccIndex)
+            if (cell.UpdateIndex < currMarkOccIndex)
             {
 
                 //if this cell has been updated as free in the current iteration, revert this
-                if (cell.updateIndex == currMarkFreeIndex)
+                if (cell.UpdateIndex == currMarkFreeIndex)
                 {
-                    concreteGridFunctions.updateUnsetFree(cell);
+                    concreteGridFunctions.UpdateUnsetFree(cell);
                 }
 
                 concreteGridFunctions.updateSetOccupied(cell);
                 //std::cout << " setOcc " << "\n";
-                cell.updateIndex = currMarkOccIndex;
+                cell.UpdateIndex = currMarkOccIndex;
             }
         }
 

@@ -1,44 +1,50 @@
-﻿using System;
+﻿using HectorSLAM.Scan;
+using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Numerics;
 using System.Text;
 
 namespace HectorSLAM.Map
 {
-    public class OccGridMapUtil<ConcreteOccGridMap, ConcreteCacheMethod>
+    public class OccGridMapUtil
     {
-        protected Vector4 intensities;
-        protected ConcreteCacheMethod cacheMethod;
-        protected ConcreteOccGridMap concreteGridMap;
-        protected List<Vector3> samplePoints;
-        protected int size = 0;
-        protected float mapObstacleThreshold;
+        private readonly GridMapCacheArray cacheMethod;
+        private readonly GridMap concreteGridMap;
+        private readonly List<Vector3> samplePoints;
 
-        public OccGridMapUtil(ConcreteOccGridMap gridMap)
+        private Vector4 intensities;
+        private int size = 0;
+        private float mapObstacleThreshold;
+
+        public OccGridMapUtil(GridMap gridMap)
         {
+            cacheMethod = new GridMapCacheArray();
             concreteGridMap = gridMap;
+            samplePoints = new List<Vector3>();
 
-            mapObstacleThreshold = gridMap->getObstacleThreshold();
-            cacheMethod.setMapSize(gridMap->getMapDimensions());
+            mapObstacleThreshold = gridMap.GetObstacleThreshold();
+            cacheMethod.SetMapSize(gridMap.MapDimensions);
         }
 
         public Vector3 GetWorldCoordsPose(Vector3 mapPose)
         {
-            return concreteGridMap->getWorldCoordsPose(mapPose);
+            return concreteGridMap.GetWorldCoordsPose(mapPose);
         }
 
         public Vector3 GetMapCoordsPose(Vector3 worldPose)
         {
-            return concreteGridMap->getMapCoordsPose(worldPose);
+            return concreteGridMap.GetMapCoordsPose(worldPose);
         }
 
         public Vector2 GetWorldCoordsPoint(Vector2 mapPoint)
         {
-            return concreteGridMap->getWorldCoords(mapPoint);
+            return concreteGridMap.GetWorldCoords(mapPoint);
         }
 
-        public void GetCompleteHessianDerivs(Vector3 pose, DataContainer dataPoints, Matrix4x4 H, Vector3 dTr)
+        public void GetCompleteHessianDerivs(Vector3 pose, DataContainer dataPoints, out Matrix4x4 H, out Vector3 dTr)
         {
+            /*
             int size = dataPoints.Count;
 
             Eigen::Affine2f transform(getTransformForState(pose));
@@ -76,11 +82,15 @@ namespace HectorSLAM.Map
 
             H(1, 0) = H(0, 1);
             H(2, 0) = H(0, 2);
-            H(2, 1) = H(1, 2);
+            H(2, 1) = H(1, 2);*/
+
+            H = Matrix4x4.Identity;
+            dTr = Vector3.Zero;
         }
 
         public Matrix4x4 GetCovarianceForPose(Vector3 mapPose, DataContainer dataPoints)
         {
+            /*
             float deltaTransX = 1.5f;
             float deltaTransY = 1.5f;
             float deltaAng = 0.05f;
@@ -134,10 +144,14 @@ namespace HectorSLAM.Map
 
             //covMatrix.cwise() * invLhNormalizer;
             //transform = getTransformForState(Vector3(x-deltaTrans, y, ang);
+            */
+
+            return Matrix4x4.Identity;
         }
 
-        public Matrix4x4 getCovMatrixWorldCoords(Matrix4x4 covMatMap)
+        public Matrix4x4 GetCovMatrixWorldCoords(Matrix4x4 covMatMap)
         {
+            /*
             //std::cout << "\nCovMap:\n" << covMatMap;
 
             Eigen::Matrix3f covMatWorld;
@@ -160,6 +174,9 @@ namespace HectorSLAM.Map
             covMatWorld(2, 2) = covMatMap(2, 2);
 
             return covMatWorld;
+            */
+
+            return Matrix4x4.Identity;
         }
 
         public float GetLikelihoodForState(Vector3 state, DataContainer dataPoints)
@@ -174,13 +191,14 @@ namespace HectorSLAM.Map
             return 1.0f - (residual / (float)numDataPoints);
         }
 
-        public float getResidualForState(Vector3 state, DataContainer dataPoints)
+        public float GetResidualForState(Vector3 state, DataContainer dataPoints)
         {
+            /*
             int size = dataPoints.Count;
             int stepSize = 1;
             float residual = 0.0f;
 
-            Eigen::Affine2f transform(getTransformForState(state));
+            Eigen::Affine2f transform(GetTransformForState(state));
 
             for (int i = 0; i < size; i += stepSize)
             {
@@ -188,21 +206,24 @@ namespace HectorSLAM.Map
                 residual += funval;
             }
 
-            return residual;
+            return residual;*/
+            return 0.0f;
         }
 
-        public float getUnfilteredGridPoint(Point gridCoords)
+        public float GetUnfilteredGridPoint(Point gridCoords)
         {
-            return (concreteGridMap->getGridProbabilityMap(gridCoords.X, gridCoords.Y));
+            throw new NotImplementedException("Not supported");
+            //return (concreteGridMap.GetGridProbabilityMap(gridCoords.X, gridCoords.Y));
         }
 
-        public float getUnfilteredGridPoint(int index)
+        public float GetUnfilteredGridPoint(int index)
         {
-            return (concreteGridMap->getGridProbabilityMap(index));
+            return (concreteGridMap.GetGridProbabilityMap(index));
         }
 
-        public float interpMapValue(Vector2 coords)
+        public float InterpMapValue(Vector2 coords)
         {
+            /*
             //check if coords are within map limits.
             if (concreteGridMap->pointOutOfMapBounds(coords))
             {
@@ -257,11 +278,14 @@ namespace HectorSLAM.Map
             return
               ((intensities[0] * xFacInv + intensities[1] * factors[0]) * (yFacInv)) +
               ((intensities[2] * xFacInv + intensities[3] * factors[0]) * (factors[1]));
+              */
 
+            return 0.0f;
         }
 
-        Vector3 interpMapValueWithDerivatives(const Vector2& coords)
+        public Vector3 InterpMapValueWithDerivatives(Vector2 coords)
         {
+            /*
             //check if coords are within map limits.
             if (concreteGridMap->pointOutOfMapBounds(coords))
             {
@@ -325,26 +349,31 @@ namespace HectorSLAM.Map
               -((dx1 * xFacInv) + (dx2 * factors[0])),
               -((dy1 * yFacInv) + (dy2 * factors[1]))
             );
+            */
+
+            return Vector3.Zero;
         }
 
-        Eigen::Affine2f getTransformForState(const Vector3& transVector) const
-          {
-            return Eigen::Translation2f(transVector[0], transVector[1]) * Eigen::Rotation2Df(transVector[2]);
-          }
-
-          Eigen::Translation2f getTranslationForState(const Vector3& transVector) const
-          {
-            return Eigen::Translation2f(transVector[0], transVector[1]);
-          }
-
-        void resetCachedData()
+        public Matrix4x4 GetTransformForState(Vector3 transVector)
         {
-            cacheMethod.resetCache();
+            return Matrix4x4.CreateTranslation(transVector.X, transVector.Y, 0.0f) * Matrix4x4.CreateRotationZ(transVector.Z);
+            //return Eigen::Translation2f(transVector[0], transVector[1]) * Eigen::Rotation2Df(transVector[2]);
         }
 
-        void resetSamplePoints()
+        public Matrix4x4 getTranslationForState(Vector3 transVector)
         {
-            samplePoints.clear();
+            return Matrix4x4.CreateTranslation(transVector.X, transVector.Y, 0.0f);
+            //return Eigen::Translation2f(transVector[0], transVector[1]);
+        }
+
+        public void ResetCachedData()
+        {
+            cacheMethod.ResetCache();
+        }
+
+        public void ResetSamplePoints()
+        {
+            samplePoints.Clear();
         }
     }
 }

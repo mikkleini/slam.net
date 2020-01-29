@@ -6,7 +6,7 @@ namespace HectorSLAM.Util
 {
     public interface IMapLocker
     {
-        void LockMap();
-        void UnlockMap();
+        void Lock();
+        void Unlock();
     }
 }

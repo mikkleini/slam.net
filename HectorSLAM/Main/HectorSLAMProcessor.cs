@@ -4,6 +4,8 @@ using System.Numerics;
 using System.Text;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
+using HectorSLAM.Scan;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
 {
@@ -41,21 +43,19 @@ namespace HectorSLAM.Main
             return MapRep.GetMapMutex(i);
         }
 
-        void setUpdateFactorFree(float free_factor) { MapRep.SetUpdateFactorFree(free_factor); }
-        void setUpdateFactorOccupied(float occupied_factor) { MapRep.SetUpdateFactorOccupied(occupied_factor); }
-        void setMapUpdateMinDistDiff(float minDist) { paramMinDistanceDiffForMapUpdate = minDist; }
-        void setMapUpdateMinAngleDiff(float angleChange) { paramMinAngleDiffForMapUpdate = angleChange; }
+        void SetUpdateFactorFree(float free_factor) { MapRep.SetUpdateFactorFree(free_factor); }
+        void SetUpdateFactorOccupied(float occupied_factor) { MapRep.SetUpdateFactorOccupied(occupied_factor); }
+        void SetMapUpdateMinDistDiff(float minDist) { paramMinDistanceDiffForMapUpdate = minDist; }
+        void SetMapUpdateMinAngleDiff(float angleChange) { paramMinAngleDiffForMapUpdate = angleChange; }
 
-
-
-        public HectorSLAMProcessor(float mapResolution, int mapSizeX, int mapSizeY, Vector2 startCoords, int multi_res_size, DrawInterface drawInterfaceIn = null, HectorDebugInfoInterface debugInterfaceIn = null)
+        public HectorSLAMProcessor(float mapResolution, int mapSizeX, int mapSizeY, Vector2 startCoords, int multi_res_size, IDrawInterface drawInterface = null, IHectorDebugInfo debugInterface = null)
         {
-            mapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY, multi_res_size, startCoords, drawInterfaceIn, debugInterfaceIn);
+            MapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY, multi_res_size, startCoords, drawInterface, debugInterface);
 
             Reset();
 
-            this->setMapUpdateMinDistDiff(0.4f * 1.0f);
-            this->setMapUpdateMinAngleDiff(0.13f * 1.0f);
+            SetMapUpdateMinDistDiff(0.4f * 1.0f);
+            SetMapUpdateMinAngleDiff(0.13f * 1.0f);
         }
 
 
@@ -80,7 +80,7 @@ namespace HectorSLAM.Main
 
             //std::cout << "\n1";
             //std::cout << "\n" << lastScanMatchPose << "\n";
-            if (util::poseDifferenceLargerThan(newPoseEstimateWorld, LastMapUpdatePose, paramMinDistanceDiffForMapUpdate, paramMinAngleDiffForMapUpdate) || map_without_matching)
+            if (Util.Util.PoseDifferenceLargerThan(newPoseEstimateWorld, LastMapUpdatePose, paramMinDistanceDiffForMapUpdate, paramMinAngleDiffForMapUpdate) || map_without_matching)
             {
                 MapRep.UpdateByScan(dataContainer, newPoseEstimateWorld);
                 MapRep.OnMapUpdated();

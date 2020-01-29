@@ -4,9 +4,9 @@ using System.Text;
 
 namespace HectorSLAM.Map
 {
-    public class OccGridMapUtilConfig<ConcreteOccGridMap> : OccGridMapUtil<ConcreteOccGridMap, GridMapCacheArray>
+    public class OccGridMapUtilConfig : OccGridMapUtil
     {
-        public OccGridMapUtilConfig(ConcreteOccGridMap gridMap)
+        public OccGridMapUtilConfig(GridMap gridMap)
             : base(gridMap)
         {
         }

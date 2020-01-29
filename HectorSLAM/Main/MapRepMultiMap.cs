@@ -1,141 +1,120 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Numerics;
 using System.Text;
 using HectorSLAM.Map;
+using HectorSLAM.Matcher;
+using HectorSLAM.Scan;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
 {
     public class MapRepMultiMap : IMapRepresentation
     {
-        List<MapProcContainer> mapContainer;
-        List<DataContainer> dataContainers;
+        private readonly List<MapProcContainer> mapContainer;
+        private readonly List<DataContainer> dataContainers;
 
-        public float ScaleToMap { get; private set; }
-        public int MapLevels { get; private set; }
+        public float ScaleToMap => mapContainer[0].GridMap.ScaleToMap;
+        public int MapLevels => mapContainer.Count;
 
-        MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY, int numDepth, Vector2 startCoords, DrawInterface* drawInterfaceIn, HectorDebugInfoInterface* debugInterfaceIn)
+        public MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY, int numDepth, Vector2 startCoords, IDrawInterface drawInterface, IHectorDebugInfo debugInterface)
         {
             //unsigned int numDepth = 3;
-            Point resolution(mapSizeX, mapSizeY);
+            Point resolution = new Point(mapSizeX, mapSizeY);
 
-                float totalMapSizeX = mapResolution * static_cast<float>(mapSizeX);
-                float mid_offset_x = totalMapSizeX * startCoords.x();
+            float totalMapSizeX = mapResolution * mapSizeX;
+            float mid_offset_x = totalMapSizeX * startCoords.X;
 
-                float totalMapSizeY = mapResolution * static_cast<float>(mapSizeY);
-                float mid_offset_y = totalMapSizeY * startCoords.y();
+            float totalMapSizeY = mapResolution * mapSizeY;
+            float mid_offset_y = totalMapSizeY * startCoords.Y;
 
-            for (unsigned int i = 0; i<numDepth; ++i){
-              std::cout << "HectorSM map lvl " << i << ": cellLength: " << mapResolution << " res x:" << resolution.x() << " res y: " << resolution.y() << "\n";
-              GridMap* gridMap = new hectorslam::GridMap(mapResolution, resolution, Vector2(mid_offset_x, mid_offset_y));
-                OccGridMapUtilConfig<GridMap>* gridMapUtil = new OccGridMapUtilConfig<GridMap>(gridMap);
-                ScanMatcher<OccGridMapUtilConfig<GridMap>>* scanMatcher = new hectorslam::ScanMatcher<OccGridMapUtilConfig<GridMap>>(drawInterfaceIn, debugInterfaceIn);
+            mapContainer = new List<MapProcContainer>();
+            dataContainers = new List<DataContainer>(numDepth - 1);
 
-                mapContainer.push_back(MapProcContainer(gridMap, gridMapUtil, scanMatcher));
+            for (int i = 0; i < numDepth; ++i)
+            {
+                Console.WriteLine($"HectorSM map lvl {i}: cellLength: {mapResolution} res x: {resolution.X} res y: {resolution.Y}");
+                GridMap gridMap = new GridMap(mapResolution, resolution, new Vector2(mid_offset_x, mid_offset_y));
+                OccGridMapUtilConfig gridMapUtil = new OccGridMapUtilConfig(gridMap);
+                ScanMatcher scanMatcher = new ScanMatcher(drawInterface, debugInterface);
 
-              resolution /= 2;
-              mapResolution*=2.0f;
+                mapContainer.Add(new MapProcContainer(gridMap, gridMapUtil, scanMatcher));
+
+                resolution = new Point(resolution.X / 2, resolution.Y / 2);
+                mapResolution *= 2.0f;
             }
-
-            dataContainers.resize(numDepth-1);
         }
 
         public void Reset()
         {
-            int size = mapContainer.size();
+            mapContainer.ForEach(m => m.Reset());
+        }
 
-            for (unsigned int i = 0; i < size; ++i)
+        public GridMap GetGridMap(int mapLevel)
+        {
+            return mapContainer[mapLevel].GridMap;
+        }
+
+        public void AddMapMutex(int i, IMapLocker mapMutex)
+        {
+            mapContainer[i].MapMutex = mapMutex;
+        }
+
+        public IMapLocker GetMapMutex(int i)
+        {
+            return mapContainer[i].MapMutex;
+        }
+
+        public void OnMapUpdated()
+        {
+            mapContainer.ForEach(m => m.ResetCachedData());
+        }
+
+        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, Matrix4x4 covMatrix)
+        {
+            int size = mapContainer.Count;
+            Vector3 tmp = beginEstimateWorld;
+
+            for (int index = size - 1; index >= 0; --index)
             {
-                mapContainer[i].reset();
+                if (index == 0)
+                {
+                    tmp = (mapContainer[index].MatchData(tmp, dataContainer, covMatrix, 5));
+                }
+                else
+                {
+                    dataContainers[index - 1].SetFrom(dataContainer, 1.0f / MathF.Pow(2.0f, index));
+                    tmp = (mapContainer[index].MatchData(tmp, dataContainers[index - 1], covMatrix, 3));
+                }
+            }
+
+            return tmp;
+        }
+
+        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
+        {
+            for (int i = 0; i < mapContainer.Count; ++i)
+            {
+                if (i == 0)
+                {
+                    mapContainer[i].UpdateByScan(dataContainer, robotPoseWorld);
+                }
+                else
+                {
+                    mapContainer[i].UpdateByScan(dataContainers[i - 1], robotPoseWorld);
+                }
             }
         }
 
-virtual float getScaleToMap() const { return mapContainer[0].getScaleToMap(); };
-
-  virtual int getMapLevels() const { return mapContainer.size(); };
-  virtual const GridMap& getGridMap(int mapLevel) const { return mapContainer[mapLevel].getGridMap(); };
-
-  virtual void addMapMutex(int i, MapLockerInterface* mapMutex)
-{
-    mapContainer[i].addMapMutex(mapMutex);
-}
-
-MapLockerInterface* getMapMutex(int i)
-{
-    return mapContainer[i].getMapMutex();
-}
-
-virtual void onMapUpdated()
-{
-    unsigned int size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i)
-    {
-        mapContainer[i].resetCachedData();
-    }
-}
-
-virtual Vector3 matchData(const Vector3& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix)
-{
-    size_t size = mapContainer.size();
-
-    Vector3 tmp(beginEstimateWorld);
-
-    for (int index = size - 1; index >= 0; --index)
-    {
-        //std::cout << " m " << i;
-        if (index == 0)
+        public void SetUpdateFactorFree(float free_factor)
         {
-            tmp = (mapContainer[index].matchData(tmp, dataContainer, covMatrix, 5));
+            mapContainer.ForEach(p => p.GridMap.SetUpdateFreeFactor(free_factor));
         }
-        else
+
+        public void SetUpdateFactorOccupied(float occupied_factor)
         {
-            dataContainers[index - 1].setFrom(dataContainer, static_cast<float>(1.0 / pow(2.0, static_cast<double>(index))));
-            tmp = (mapContainer[index].matchData(tmp, dataContainers[index - 1], covMatrix, 3));
+            mapContainer.ForEach(p => p.GridMap.SetUpdateOccupiedFactor(occupied_factor));
         }
-    }
-    return tmp;
-}
-
-virtual void updateByScan(const DataContainer& dataContainer, const Vector3& robotPoseWorld)
-{
-    unsigned int size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i)
-    {
-        //std::cout << " u " <<  i;
-        if (i == 0)
-        {
-            mapContainer[i].updateByScan(dataContainer, robotPoseWorld);
-        }
-        else
-        {
-            mapContainer[i].updateByScan(dataContainers[i - 1], robotPoseWorld);
-        }
-    }
-    //std::cout << "\n";
-}
-
-virtual void setUpdateFactorFree(float free_factor)
-{
-    size_t size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i)
-    {
-        GridMap & map = mapContainer[i].getGridMap();
-        map.setUpdateFreeFactor(free_factor);
-    }
-}
-
-virtual void setUpdateFactorOccupied(float occupied_factor)
-{
-    size_t size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i)
-    {
-        GridMap & map = mapContainer[i].getGridMap();
-        map.setUpdateOccupiedFactor(occupied_factor);
-    }
-}
-
     }
 }

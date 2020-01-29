@@ -3,22 +3,28 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Text;
 using HectorSLAM.Map;
+using HectorSLAM.Scan;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Matcher
 {
-    public class ScanMatcher<T>
+    public class ScanMatcher
     {
+        private readonly IDrawInterface drawInterface;
+        private readonly IHectorDebugInfo debugInterface;
         protected Vector3 dTr;
         protected Matrix4x4 H;
 
         //DrawInterface* drawInterface;
         //HectorDebugInfoInterface* debugInterface;
 
-        public ScanMatcher(DrawInterface* drawInterfaceIn = 0, HectorDebugInfoInterface* debugInterfaceIn = 0)
+        public ScanMatcher(IDrawInterface drawInterface = null, IHectorDebugInfo debugInterface = null)
         {
+            this.drawInterface = drawInterface;
+            this.debugInterface = debugInterface;
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, ConcreteOccGridMapUtil gridMapUtil, DataContainer dataContainer, Matrix4x4 covMatrix, int maxIterations)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, OccGridMapUtil gridMapUtil, DataContainer dataContainer, Matrix4x4 covMatrix, int maxIterations)
         {
             /*
             if (drawInterface)
@@ -36,11 +42,11 @@ namespace HectorSLAM.Matcher
 
             if (dataContainer.Count != 0)
             {
-                Vector3 beginEstimateMap = gridMapUtil.getMapCoordsPose(beginEstimateWorld);
+                Vector3 beginEstimateMap = gridMapUtil.GetMapCoordsPose(beginEstimateWorld);
 
                 Vector3 estimate = beginEstimateMap;
 
-                estimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
+                EstimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
                 //bool notConverged = estimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
 
                 /*
@@ -63,7 +69,7 @@ namespace HectorSLAM.Matcher
                 {
                     //std::cout << "\nest:\n" << estimate;
 
-                    estimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
+                    EstimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
                     //notConverged = estimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
 
                     /*
@@ -144,7 +150,7 @@ namespace HectorSLAM.Matcher
                 */
 
 
-                estimate[2] = util::normalize_angle(estimate[2]);
+                estimate.Z = Util.Util.NormalizeAngle(estimate.Z);
 
                 covMatrix = Eigen::Matrix3f::Zero();
                 //covMatrix.block<2,2>(0,0) = (H.block<2,2>(0,0).inverse());
@@ -159,15 +165,15 @@ namespace HectorSLAM.Matcher
 
                 covMatrix = H;
 
-                return gridMapUtil.getWorldCoordsPose(estimate);
+                return gridMapUtil.GetWorldCoordsPose(estimate);
             }
 
             return beginEstimateWorld;
         }
 
-        protected bool estimateTransformationLogLh(Vector3 estimate, ConcreteOccGridMapUtil gridMapUtil, DataContainer dataPoints)
+        protected bool EstimateTransformationLogLh(Vector3 estimate, OccGridMapUtil gridMapUtil, DataContainer dataPoints)
         {
-            gridMapUtil.getCompleteHessianDerivs(estimate, dataPoints, H, dTr);
+            gridMapUtil.GetCompleteHessianDerivs(estimate, dataPoints, out H, out dTr);
             //std::cout << "\nH\n" << H  << "\n";
             //std::cout << "\ndTr\n" << dTr  << "\n";
 
@@ -182,7 +188,7 @@ namespace HectorSLAM.Matcher
                 if (searchDir[2] > 0.2f)
                 {
                     searchDir[2] = 0.2f;
-                    std::cout << "SearchDir angle change too large\n";
+                    Console.WriteLine("SearchDir angle change too large");
                 }
                 else if (searchDir[2] < -0.2f)
                 {
@@ -190,28 +196,27 @@ namespace HectorSLAM.Matcher
                     std::cout << "SearchDir angle change too large\n";
                 }
 
-                updateEstimatedPose(estimate, searchDir);
+                UpdateEstimatedPose(ref estimate, searchDir);
+
                 return true;
             }
+
             return false;
         }
 
-        protected void updateEstimatedPose(ref Vector3 estimate, Vector3 change)
+        protected void UpdateEstimatedPose(ref Vector3 estimate, Vector3 change)
         {
             estimate += change;
         }
 
-        protected void drawScan(Vector3 pose, ConcreteOccGridMapUtil gridMapUtil, DataContainer dataContainer)
+        protected void DrawScan(Vector3 pose, OccGridMapUtil gridMapUtil, DataContainer dataContainer)
         {
-            drawInterface->setScale(0.02);
+            drawInterface.SetScale(0.02);
+            Matrix4x4 transform = gridMapUtil.GetTransformForState(pose);
 
-            Eigen::Affine2f transform(gridMapUtil.getTransformForState(pose));
-
-            int size = dataContainer.getSize();
-            for (int i = 0; i < size; ++i)
+            for (int i = 0; i < dataContainer.Count; ++i)
             {
-                const Vector2&currPoint(dataContainer.getVecEntry(i));
-                drawInterface->drawPoint(gridMapUtil.getWorldCoordsPoint(transform * currPoint));
+                drawInterface.DrawPoint(gridMapUtil.GetWorldCoordsPoint(Vector2.Transform(dataContainer[i], transform)));
             }
         }
     }

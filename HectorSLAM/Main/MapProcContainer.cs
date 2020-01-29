@@ -1,92 +1,58 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
+using HectorSLAM.Scan;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
 {
     public class MapProcContainer
     {
-        public GridMap gridMap;
-        //OccGridMapUtilConfig<GridMap>* gridMapUtil;
-        ScanMatcher<OccGridMapUtilConfig<GridMap>> scanMatcher;
-        IMapLocker mapMutex;
+        public GridMap GridMap { get; private set; }
+        public OccGridMapUtilConfig GridMapUtil { get; private set; }
+        public ScanMatcher ScanMatcher { get; private set; }
+        public IMapLocker MapMutex { get; set; }
 
-        public MapProcContainer(GridMap* gridMapIn, OccGridMapUtilConfig<GridMap>* gridMapUtilIn, ScanMatcher<OccGridMapUtilConfig<GridMap>>* scanMatcherIn)
-    : gridMap(gridMapIn)
-    , gridMapUtil(gridMapUtilIn)
-    , scanMatcher(scanMatcherIn)
-    , mapMutex(0)
-            { }
-
-            virtual ~MapProcContainer()
-            { }
-
-            void cleanup()
-            {
-                delete gridMap;
-                delete gridMapUtil;
-                delete scanMatcher;
-
-                if (mapMutex)
-                {
-                    delete mapMutex;
-                }
-            }
-
-            void reset()
-            {
-                gridMap->reset();
-                gridMapUtil->resetCachedData();
-            }
-
-            void resetCachedData()
-            {
-                gridMapUtil->resetCachedData();
-            }
-
-            float getScaleToMap() const { return gridMap->getScaleToMap();
-        };
-
-        const GridMap& getGridMap() const { return *gridMap; };
-    GridMap& getGridMap() { return *gridMap; };
-
-    void addMapMutex(MapLockerInterface* mapMutexIn)
-    {
-        if (mapMutex)
+        public MapProcContainer(GridMap gridMap, OccGridMapUtilConfig gridMapUtil, ScanMatcher scanMatcher)
         {
-            delete mapMutex;
+            GridMap = GridMap;
+            GridMapUtil = gridMapUtil;
+            ScanMatcher = scanMatcher;
+            MapMutex = null;
         }
 
-        mapMutex = mapMutexIn;
-    }
-
-    MapLockerInterface* getMapMutex()
-    {
-        return mapMutex;
-    }
-
-    Vector3 matchData(const Vector3& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix, int maxIterations)
-    {
-        return scanMatcher->matchData(beginEstimateWorld, *gridMapUtil, dataContainer, covMatrix, maxIterations);
-    }
-
-    void updateByScan(const DataContainer& dataContainer, const Vector3& robotPoseWorld)
-    {
-        if (mapMutex)
+        public void Reset()
         {
-            mapMutex->lockMap();
+            GridMap.Reset();
+            GridMapUtil.ResetCachedData();
         }
 
-        gridMap->updateByScan(dataContainer, robotPoseWorld);
-
-        if (mapMutex)
+        public void ResetCachedData()
         {
-            mapMutex->unlockMap();
+            GridMapUtil.ResetCachedData();
         }
-    }
 
+        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, Matrix4x4 covMatrix, int maxIterations)
+        {
+            return ScanMatcher.MatchData(beginEstimateWorld, GridMapUtil, dataContainer, covMatrix, maxIterations);
+        }
 
+        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
+        {
+            if (MapMutex != null)
+            {
+                MapMutex.Lock();
+            }
+
+            GridMap.UpdateByScan(dataContainer, robotPoseWorld);
+
+            if (MapMutex != null)
+            {
+                MapMutex.Unlock();
+            }
+        }
     }
 }

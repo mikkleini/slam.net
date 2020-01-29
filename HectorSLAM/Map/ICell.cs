@@ -6,10 +6,9 @@ namespace HectorSLAM.Map
 {
     public interface ICell
     {
-        void Set(float val);
-        float GetValue();
-        bool IsOccupied();
-        bool IsFree();
-        void ResetGridCell();
+        float Value { get; set; }
+        bool IsOccupied { get; }
+        bool IsFree { get; }
+        void Reset();
     }
 }

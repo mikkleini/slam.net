@@ -1,58 +1,56 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Numerics;
 using System.Text;
 using HectorSLAM.Map;
+using HectorSLAM.Matcher;
+using HectorSLAM.Scan;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
 {
     public class MapRepSingleMap : IMapRepresentation
     {
         protected GridMap gridMap;
-        protected OccGridMapUtilConfig<GridMap> gridMapUtil;
-        protected ScanMatcher<OccGridMapUtilConfig<GridMap>> scanMatcher;
+        protected OccGridMapUtilConfig gridMapUtil;
+        protected ScanMatcher scanMatcher;
 
-        public MapRepSingleMap(float mapResolution, DrawInterface* drawInterfaceIn, HectorDebugInfoInterface* debugInterfaceIn)
+        public MapRepSingleMap(float mapResolution, IDrawInterface drawInterface, IHectorDebugInfo debugInterface)
         {
-            gridMap = new hectorslam::GridMap(mapResolution, Eigen::Vector2i(1024, 1024), Eigen::Vector2f(20.0f, 20.0f));
-            gridMapUtil = new OccGridMapUtilConfig<GridMap>(gridMap);
-            scanMatcher = new hectorslam::ScanMatcher<OccGridMapUtilConfig<GridMap>>(drawInterfaceIn, debugInterfaceIn);
+            gridMap = new GridMap(mapResolution, new Point(1024, 1024), new Vector2(20.0f, 20.0f));
+            gridMapUtil = new OccGridMapUtilConfig(gridMap);
+            scanMatcher = new ScanMatcher(drawInterface, debugInterface);
         }
 
-        virtual ~MapRepSingleMap()
+        public void Reset()
         {
-            delete gridMap;
-            delete gridMapUtil;
-            delete scanMatcher;
+            gridMap.Reset();
+            gridMapUtil.ResetCachedData();
         }
 
-        virtual void reset()
+        public float ScaleToMap => gridMap.ScaleToMap;
+
+        public int MapLevels => 1;
+
+        public GridMap GetGridMap(int mapLevel)
         {
-            gridMap->reset();
-            gridMapUtil->resetCachedData();
+            return gridMap;
         }
 
-        virtual float getScaleToMap() const { return gridMap->getScaleToMap();
-    };
+        public void OnMapUpdated()
+        {
+            gridMapUtil.ResetCachedData();
+        }
 
-    virtual int getMapLevels() const { return 1; };
-      virtual const GridMap& getGridMap(int mapLevel) const { return * gridMap; };
+        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, Matrix4x4 covMatrix)
+        {
+            return scanMatcher.MatchData(beginEstimateWorld, gridMapUtil, dataContainer, covMatrix, 20);
+        }
 
-      virtual void onMapUpdated()
-    {
-        gridMapUtil->resetCachedData();
+        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
+        {
+            gridMap.UpdateByScan(dataContainer, robotPoseWorld);
+        }
     }
-
-    virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix)
-    {
-        return scanMatcher->matchData(beginEstimateWorld, *gridMapUtil, dataContainer, covMatrix, 20);
-    }
-
-    virtual void updateByScan(const DataContainer& dataContainer, const Eigen::Vector3f& robotPoseWorld)
-    {
-        gridMap->updateByScan(dataContainer, robotPoseWorld);
-    }
-
-   
-    };
-
 }

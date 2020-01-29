@@ -51,8 +51,8 @@ namespace HectorSLAM.Map
                 mapArray[i].ResetGridCell();
             }
 
-            //this->mapArray[0].set(1.0f);
-            //this->mapArray[size-1].set(1.0f);
+            //mapArray[0].set(1.0f);
+            //mapArray[size-1].set(1.0f);
         }
 
         /**
@@ -118,26 +118,26 @@ namespace HectorSLAM.Map
         /*
         public static GridMapBase operator=(GridMapBase other)
         {
-            if (!(this->mapDimensionProperties == other.mapDimensionProperties))
+            if (!(mapDimensionProperties == other.mapDimensionProperties))
             {
-                this->setMapGridSize(other.mapDimensionProperties.getMapDimensions());
+                setMapGridSize(other.mapDimensionProperties.getMapDimensions());
             }
 
-            this->mapDimensionProperties = other.mapDimensionProperties;
+            mapDimensionProperties = other.mapDimensionProperties;
 
-            this->worldTmap = other.worldTmap;
-            this->mapTworld = other.mapTworld;
-            this->worldTmap3D = other.worldTmap3D;
+            worldTmap = other.worldTmap;
+            mapTworld = other.mapTworld;
+            worldTmap3D = other.worldTmap3D;
 
-            this->scaleToMap = other.scaleToMap;
+            scaleToMap = other.scaleToMap;
 
             //@todo potential resize
-            int sizeX = this->getSizeX();
-            int sizeY = this->getSizeY();
+            int sizeX = getSizeX();
+            int sizeY = getSizeY();
 
             size_t concreteCellSize = sizeof(ConcreteCellType);
 
-            memcpy(this->mapArray, other.mapArray, sizeX * sizeY * concreteCellSize);
+            memcpy(mapArray, other.mapArray, sizeX * sizeY * concreteCellSize);
 
             return *this;
         }
@@ -145,7 +145,7 @@ namespace HectorSLAM.Map
         /**
          * Returns the world coordinates for the given map coords.
          */
-        private Vector2 getWorldCoords(Vector2 mapCoords)
+        public Vector2 GetWorldCoords(Vector2 mapCoords)
         {
             return Vector2.Transform(mapCoords, worldTmap);
         }
@@ -153,7 +153,7 @@ namespace HectorSLAM.Map
         /**
          * Returns the map coordinates for the given world coords.
          */
-        private Vector2 getMapCoords(Vector2 worldCoords)
+        public Vector2 GetMapCoords(Vector2 worldCoords)
         {
             return Vector2.Transform(worldCoords, mapTworld);
         }
@@ -161,7 +161,7 @@ namespace HectorSLAM.Map
         /**
          * Returns the world pose for the given map pose.
          */
-        private Vector3 getWorldCoordsPose(Vector3 mapPose)
+        public Vector3 GetWorldCoordsPose(Vector3 mapPose)
         {
             Vector2 worldCoords = Vector2.Transform(new Vector2(mapPose.X, mapPose.Y), worldTmap);
             return new Vector3(worldCoords.X, worldCoords.Y, mapPose.Z);
@@ -170,7 +170,7 @@ namespace HectorSLAM.Map
         /**
         * Returns the map pose for the given world pose.
         */
-        public Vector3 getMapCoordsPose(Vector3 worldPose)
+        public Vector3 GetMapCoordsPose(Vector3 worldPose)
         {
             Vector2 mapCoords = Vector2.Transform(new Vector2(worldPose.X, worldPose.Y), mapTworld);
             return new Vector3(mapCoords.X, mapCoords.Y, worldPose.Z);

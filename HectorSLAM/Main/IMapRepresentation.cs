@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Text;
 using HectorSLAM.Map;
 using HectorSLAM.Scan;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
 {
