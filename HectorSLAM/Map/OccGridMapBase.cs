@@ -1,4 +1,5 @@
 ﻿using HectorSLAM.Scan;
+using HectorSLAM.Util;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -104,7 +105,7 @@ namespace HectorSLAM.Map
             Vector2 scanBeginMapf = Vector2.Transform(dataContainer.Origo, poseTransform);
 
             // Get integer vector of laser beams start point
-            Point scanBeginMapi = new Point((int)(scanBeginMapf.X + 0.5f), (int)(scanBeginMapf.Y + 0.5f));
+            Point scanBeginMapi = scanBeginMapf.ToPoint();
 
             //std::cout << "\n maxD: " << maxDist << " num: " << numValidElems << "\n";
 
@@ -116,7 +117,7 @@ namespace HectorSLAM.Map
                 //std::cout << "\ns\n" << scanEndMapf << "\n";
 
                 //Get integer map coordinates of current beam endpoint
-                Point scanEndMapi = new Point((int)(scanEndMapf.X + 0.5f), (int)(scanEndMapf.Y + 0.5f));
+                Point scanEndMapi = scanEndMapf.ToPoint();
 
                 //Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates
                 if (scanBeginMapi != scanEndMapi)
@@ -199,7 +200,7 @@ namespace HectorSLAM.Map
                     concreteGridFunctions.UpdateUnsetFree(cell);
                 }
 
-                concreteGridFunctions.updateSetOccupied(cell);
+                concreteGridFunctions.UpdateSetOccupied(cell);
                 //std::cout << " setOcc " << "\n";
                 cell.UpdateIndex = currMarkOccIndex;
             }

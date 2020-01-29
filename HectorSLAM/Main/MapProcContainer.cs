@@ -35,9 +35,9 @@ namespace HectorSLAM.Main
             GridMapUtil.ResetCachedData();
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, Matrix4x4 covMatrix, int maxIterations)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, out Matrix4x4 covMatrix, int maxIterations)
         {
-            return ScanMatcher.MatchData(beginEstimateWorld, GridMapUtil, dataContainer, covMatrix, maxIterations);
+            return ScanMatcher.MatchData(beginEstimateWorld, GridMapUtil, dataContainer, out covMatrix, maxIterations);
         }
 
         public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)

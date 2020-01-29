@@ -24,29 +24,29 @@ namespace HectorSLAM.Matcher
             this.debugInterface = debugInterface;
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, OccGridMapUtil gridMapUtil, DataContainer dataContainer, Matrix4x4 covMatrix, int maxIterations)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, OccGridMapUtil gridMapUtil, DataContainer dataContainer, out Matrix4x4 covMatrix, int maxIterations)
         {
-            /*
-            if (drawInterface)
+            covMatrix = Matrix4x4.Identity;
+
+            if (drawInterface != null)
             {
-                drawInterface->setScale(0.05f);
-                drawInterface->setColor(0.0f,1.0f, 0.0f);
-                drawInterface->drawArrow(beginEstimateWorld);
+                drawInterface.SetScale(0.05f);
+                drawInterface.SetColor(0.0f, 1.0f, 0.0f);
+                drawInterface.DrawArrow(beginEstimateWorld);
 
-                Vector3 beginEstimateMap(gridMapUtil.getMapCoordsPose(beginEstimateWorld));
+                Vector3 beginEstimateMap = gridMapUtil.GetMapCoordsPose(beginEstimateWorld);
 
-                drawScan(beginEstimateMap, gridMapUtil, dataContainer);
+                DrawScan(beginEstimateMap, gridMapUtil, dataContainer);
 
-                drawInterface->setColor(1.0,0.0,0.0);
-            }*/
+                drawInterface.SetColor(1.0, 0.0, 0.0);
+            }
 
             if (dataContainer.Count != 0)
             {
                 Vector3 beginEstimateMap = gridMapUtil.GetMapCoordsPose(beginEstimateWorld);
-
                 Vector3 estimate = beginEstimateMap;
 
-                EstimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
+                EstimateTransformationLogLh(ref estimate, gridMapUtil, dataContainer);
                 //bool notConverged = estimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
 
                 /*
@@ -65,35 +65,32 @@ namespace HectorSLAM.Matcher
 
                 int numIter = maxIterations;
 
-                for (int i = 0; i<numIter; ++i)
+                for (int i = 0; i < numIter; ++i)
                 {
                     //std::cout << "\nest:\n" << estimate;
 
-                    EstimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
+                    EstimateTransformationLogLh(ref estimate, gridMapUtil, dataContainer);
                     //notConverged = estimateTransformationLogLh(estimate, gridMapUtil, dataContainer);
 
-                    /*
-                    if (drawInterface)
+                    if (drawInterface != null)
                     {
-                        float invNumIterf = 1.0f / static_cast<float>(numIter);
-                        drawInterface->setColor(static_cast<float>(i) * invNumIterf,0.0f, 0.0f);
-                        drawInterface->drawArrow(gridMapUtil.getWorldCoordsPose(estimate));
+                        float invNumIterf = 1.0f / numIter;
+                        drawInterface.SetColor(i * invNumIterf, 0.0f, 0.0f);
+                        drawInterface.DrawArrow(gridMapUtil.GetWorldCoordsPose(estimate));
                         //drawInterface->drawArrow(Vector3(0.0f, static_cast<float>(i)*0.05, 0.0f));
                     }
 
-                    if(debugInterface)
+                    if (debugInterface != null)
                     {
-                        debugInterface->addHessianMatrix(H);
+                        debugInterface.AddHessianMatrix(H);
                     }
-                    */
                 }
 
-                /*
-                if (drawInterface)
+                if (drawInterface != null)
                 {
-                    drawInterface->setColor(0.0,0.0,1.0);
-                    drawScan(estimate, gridMapUtil, dataContainer);
-                }*/
+                    drawInterface.SetColor(0.0, 0.0, 1.0);
+                    DrawScan(estimate, gridMapUtil, dataContainer);
+                }
 
 
                 /*
@@ -152,7 +149,7 @@ namespace HectorSLAM.Matcher
 
                 estimate.Z = Util.Util.NormalizeAngle(estimate.Z);
 
-                covMatrix = Eigen::Matrix3f::Zero();
+                //covMatrix = Eigen::Matrix3f::Zero();
                 //covMatrix.block<2,2>(0,0) = (H.block<2,2>(0,0).inverse());
                 //covMatrix.block<2,2>(0,0) = (H.block<2,2>(0,0));
 
@@ -171,29 +168,34 @@ namespace HectorSLAM.Matcher
             return beginEstimateWorld;
         }
 
-        protected bool EstimateTransformationLogLh(Vector3 estimate, OccGridMapUtil gridMapUtil, DataContainer dataPoints)
+        protected bool EstimateTransformationLogLh(ref Vector3 estimate, OccGridMapUtil gridMapUtil, DataContainer dataPoints)
         {
-            gridMapUtil.GetCompleteHessianDerivs(estimate, dataPoints, out H, out dTr);
+            gridMapUtil.GetCompleteHessianDerivs(estimate, dataPoints, out Matrix4x4 H, out Vector3 dTr);
             //std::cout << "\nH\n" << H  << "\n";
             //std::cout << "\ndTr\n" << dTr  << "\n";
 
-
-            if ((H(0, 0) != 0.0f) && (H(1, 1) != 0.0f))
+            if ((H.M11 != 0.0f) && (H.M22 != 0.0f))
+            //if ((H(0, 0) != 0.0f) && (H(1, 1) != 0.0f))
             {
                 //H += Eigen::Matrix3f::Identity() * 1.0f;
-                Vector3 searchDir = H.inverse() * dTr;
+                if (!Matrix4x4.Invert(H, out Matrix4x4 iH))
+                {
+                    return false;
+                }
+
+                Vector3 searchDir = Vector3.Transform(dTr, iH);
 
                 //std::cout << "\nsearchdir\n" << searchDir  << "\n";
 
-                if (searchDir[2] > 0.2f)
+                if (searchDir.Z > 0.2f)
                 {
-                    searchDir[2] = 0.2f;
+                    searchDir.Z = 0.2f;
                     Console.WriteLine("SearchDir angle change too large");
                 }
-                else if (searchDir[2] < -0.2f)
+                else if (searchDir.Z < -0.2f)
                 {
-                    searchDir[2] = -0.2f;
-                    std::cout << "SearchDir angle change too large\n";
+                    searchDir.Z = -0.2f;
+                    Console.WriteLine("SearchDir angle change too large");
                 }
 
                 UpdateEstimatedPose(ref estimate, searchDir);

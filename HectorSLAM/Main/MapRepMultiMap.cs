@@ -71,21 +71,21 @@ namespace HectorSLAM.Main
             mapContainer.ForEach(m => m.ResetCachedData());
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, Matrix4x4 covMatrix)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, out Matrix4x4 covMatrix)
         {
-            int size = mapContainer.Count;
             Vector3 tmp = beginEstimateWorld;
+            covMatrix = Matrix4x4.Identity; // It should not be returned
 
-            for (int index = size - 1; index >= 0; --index)
+            for (int index = mapContainer.Count - 1; index >= 0; --index)
             {
                 if (index == 0)
                 {
-                    tmp = (mapContainer[index].MatchData(tmp, dataContainer, covMatrix, 5));
+                    tmp = mapContainer[index].MatchData(tmp, dataContainer, out covMatrix, 5);
                 }
                 else
                 {
                     dataContainers[index - 1].SetFrom(dataContainer, 1.0f / MathF.Pow(2.0f, index));
-                    tmp = (mapContainer[index].MatchData(tmp, dataContainers[index - 1], covMatrix, 3));
+                    tmp = mapContainer[index].MatchData(tmp, dataContainers[index - 1], out covMatrix, 3);
                 }
             }
 
@@ -107,14 +107,14 @@ namespace HectorSLAM.Main
             }
         }
 
-        public void SetUpdateFactorFree(float free_factor)
+        public void SetUpdateFactorFree(float factor)
         {
-            mapContainer.ForEach(p => p.GridMap.SetUpdateFreeFactor(free_factor));
+            mapContainer.ForEach(p => p.GridMap.SetUpdateFreeFactor(factor));
         }
 
-        public void SetUpdateFactorOccupied(float occupied_factor)
+        public void SetUpdateFactorOccupied(float factor)
         {
-            mapContainer.ForEach(p => p.GridMap.SetUpdateOccupiedFactor(occupied_factor));
+            mapContainer.ForEach(p => p.GridMap.SetUpdateOccupiedFactor(factor));
         }
     }
 }

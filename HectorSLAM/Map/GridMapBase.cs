@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Numerics;
 using System.Drawing;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
 {
@@ -48,7 +49,7 @@ namespace HectorSLAM.Map
 
             for (int i = 0; i < size; ++i)
             {
-                mapArray[i].ResetGridCell();
+                mapArray[i].Reset();
             }
 
             //mapArray[0].set(1.0f);
@@ -163,7 +164,7 @@ namespace HectorSLAM.Map
          */
         public Vector3 GetWorldCoordsPose(Vector3 mapPose)
         {
-            Vector2 worldCoords = Vector2.Transform(new Vector2(mapPose.X, mapPose.Y), worldTmap);
+            Vector2 worldCoords = Vector2.Transform(mapPose.ToVector2(), worldTmap);
             return new Vector3(worldCoords.X, worldCoords.Y, mapPose.Z);
         }
 
@@ -172,7 +173,7 @@ namespace HectorSLAM.Map
         */
         public Vector3 GetMapCoordsPose(Vector3 worldPose)
         {
-            Vector2 mapCoords = Vector2.Transform(new Vector2(worldPose.X, worldPose.Y), mapTworld);
+            Vector2 mapCoords = Vector2.Transform(worldPose.ToVector2(), mapTworld);
             return new Vector3(mapCoords.X, mapCoords.Y, worldPose.Z);
         }
 
@@ -218,7 +219,7 @@ namespace HectorSLAM.Map
             }
         }
 
-        private void SetUpdated()
+        protected void SetUpdated()
         {
             lastUpdateIndex++;
         }
@@ -244,7 +245,7 @@ namespace HectorSLAM.Map
             {
                 for (int y = 0; y<sizeY; ++y)
                 {
-                    if (mapArray[y * sizeX + x].GetValue() != 0.0f)
+                    if (mapArray[y * sizeX + x].Value != 0.0f)
                     {
                         if (x > xMaxTemp)
                         {

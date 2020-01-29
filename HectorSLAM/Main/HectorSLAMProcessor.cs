@@ -11,14 +11,16 @@ namespace HectorSLAM.Main
 {
     public class HectorSLAMProcessor
     {
-        public IMapRepresentation MapRep;
+        private readonly IDrawInterface drawInterface;
+        private readonly IHectorDebugInfo debugInterface;
+
+        public IMapRepresentation MapRep { get; protected set; }
         public Vector3 LastMapUpdatePose { get; protected set; }
         public Vector3 LastScanMatchPose { get; protected set; }
         public Matrix4x4 LastScanMatchCov { get; protected set; }
+        public float MinDistanceDiffForMapUpdate { get; set; }
+        public float MinAngleDiffForMapUpdate { get; set; }
 
-        public float paramMinDistanceDiffForMapUpdate;
-        public float paramMinAngleDiffForMapUpdate;
-        
         /*
         DrawInterface* drawInterface;
         HectorDebugInfoInterface* debugInterface;
@@ -43,68 +45,76 @@ namespace HectorSLAM.Main
             return MapRep.GetMapMutex(i);
         }
 
-        void SetUpdateFactorFree(float free_factor) { MapRep.SetUpdateFactorFree(free_factor); }
-        void SetUpdateFactorOccupied(float occupied_factor) { MapRep.SetUpdateFactorOccupied(occupied_factor); }
-        void SetMapUpdateMinDistDiff(float minDist) { paramMinDistanceDiffForMapUpdate = minDist; }
-        void SetMapUpdateMinAngleDiff(float angleChange) { paramMinAngleDiffForMapUpdate = angleChange; }
-
-        public HectorSLAMProcessor(float mapResolution, int mapSizeX, int mapSizeY, Vector2 startCoords, int multi_res_size, IDrawInterface drawInterface = null, IHectorDebugInfo debugInterface = null)
+        public void SetUpdateFactorFree(float free_factor)
         {
-            MapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY, multi_res_size, startCoords, drawInterface, debugInterface);
+            MapRep.SetUpdateFactorFree(free_factor);
+        }
+
+        public void SetUpdateFactorOccupied(float occupied_factor)
+        {
+            MapRep.SetUpdateFactorOccupied(occupied_factor);
+        }
+
+        public HectorSLAMProcessor(float mapResolution, int mapSizeX, int mapSizeY, Vector2 startCoords, int multiResSize, IDrawInterface drawInterface = null, IHectorDebugInfo debugInterface = null)
+        {
+            this.drawInterface = drawInterface;
+            this.debugInterface = debugInterface;
+
+            MapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY, multiResSize, startCoords, drawInterface, debugInterface);
 
             Reset();
 
-            SetMapUpdateMinDistDiff(0.4f * 1.0f);
-            SetMapUpdateMinAngleDiff(0.13f * 1.0f);
+            MinDistanceDiffForMapUpdate = 0.4f * 1.0f;
+            MinAngleDiffForMapUpdate = 0.13f * 1.0f;
         }
 
-
-        public void Update(DataContainer dataContainer, Vector3 poseHintWorld, bool map_without_matching = false)
+        /// <summary>
+        /// Update with new data
+        /// </summary>
+        /// <param name="dataContainer">Scan data</param>
+        /// <param name="poseHintWorld">Pose hint</param>
+        /// <param name="mapWithoutMatching">Map without matching ?</param>
+        public void Update(DataContainer dataContainer, Vector3 poseHintWorld, bool mapWithoutMatching = false)
         {
-            //std::cout << "\nph:\n" << poseHintWorld << "\n";
+            //Console.WriteLine($"ph: {poseHintWorld}");
 
-            Vector3 newPoseEstimateWorld;
-
-            if (!map_without_matching)
+            if (!mapWithoutMatching)
             {
-                newPoseEstimateWorld = (MapRep.MatchData(poseHintWorld, dataContainer, LastScanMatchCov));
+                LastScanMatchPose = MapRep.MatchData(poseHintWorld, dataContainer, out Matrix4x4 lastScanMatchCov);
+                LastScanMatchCov = lastScanMatchCov;
             }
             else
             {
-                newPoseEstimateWorld = poseHintWorld;
+                LastScanMatchPose = poseHintWorld;
             }
-
-            LastScanMatchPose = newPoseEstimateWorld;
-
             //std::cout << "\nt1:\n" << newPoseEstimateWorld << "\n";
 
             //std::cout << "\n1";
             //std::cout << "\n" << lastScanMatchPose << "\n";
-            if (Util.Util.PoseDifferenceLargerThan(newPoseEstimateWorld, LastMapUpdatePose, paramMinDistanceDiffForMapUpdate, paramMinAngleDiffForMapUpdate) || map_without_matching)
+            if (Util.Util.PoseDifferenceLargerThan(LastScanMatchPose, LastMapUpdatePose, MinDistanceDiffForMapUpdate, MinAngleDiffForMapUpdate) || mapWithoutMatching)
             {
-                MapRep.UpdateByScan(dataContainer, newPoseEstimateWorld);
+                MapRep.UpdateByScan(dataContainer, LastScanMatchPose);
                 MapRep.OnMapUpdated();
-                LastMapUpdatePose = newPoseEstimateWorld;
+                LastMapUpdatePose = LastScanMatchPose;
             }
 
-            /*
-            if (drawInterface)
+            if (drawInterface != null)
             {
-                const GridMap& gridMapRef(mapRep->getGridMap());
-                drawInterface->setColor(1.0, 0.0, 0.0);
-                drawInterface->setScale(0.15);
+                GridMap gridMapRef = MapRep.GetGridMap();
+                drawInterface.SetColor(1.0, 0.0, 0.0);
+                drawInterface.SetScale(0.15);
 
-                drawInterface->drawPoint(gridMapRef.getWorldCoords(Vector2::Zero()));
-                drawInterface->drawPoint(gridMapRef.getWorldCoords((gridMapRef.getMapDimensions().array()-1).cast<float>()));
-                drawInterface->drawPoint(Vector2(1.0f, 1.0f));
+                drawInterface.DrawPoint(gridMapRef.GetWorldCoords(Vector2.Zero));
+                drawInterface.DrawPoint(gridMapRef.GetWorldCoords(gridMapRef.MapDimensions.ToVector2()));
+                drawInterface.DrawPoint(new Vector2(1.0f, 1.0f));
 
-                drawInterface->sendAndResetData();
+                drawInterface.SendAndResetData();
             }
 
-            if (debugInterface)
+            if (debugInterface != null)
             {
-                debugInterface->sendAndResetData();
-            }*/
+                debugInterface.SendAndResetData();
+            }
         }
 
         /// <summary>

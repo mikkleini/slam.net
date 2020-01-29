@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Numerics;
 using System.Text;
 
@@ -7,6 +8,36 @@ namespace HectorSLAM.Util
 {
     public static class Util
     {
+        /// <summary>
+        /// Point to Vector2
+        /// </summary>
+        /// <param name="point">Point</param>
+        /// <returns>Vector2</returns>
+        public static Vector2 ToVector2(this Point point)
+        {
+            return new Vector2(point.X, point.Y);
+        }
+
+        /// <summary>
+        /// Vector3 to Vector2
+        /// </summary>
+        /// <param name="vector">Vector3</param>
+        /// <returns>Vector2</returns>
+        public static Vector2 ToVector2(this Vector3 vector)
+        {
+            return new Vector2(vector.X, vector.Y);
+        }
+
+        /// <summary>
+        /// Vector2 to Point with rounding
+        /// </summary>
+        /// <param name="vector">Vector3</param>
+        /// <returns>Vector2</returns>
+        public static Point ToPoint(this Vector2 vector)
+        {
+            return new Point((int)MathF.Round(vector.X), (int)MathF.Round(vector.Y));
+        }
+
         public static float NormalizeAnglePos(float angle)
         {
             float pi2 = MathF.PI * 2.0f;

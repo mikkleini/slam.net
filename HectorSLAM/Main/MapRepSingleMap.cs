@@ -43,14 +43,34 @@ namespace HectorSLAM.Main
             gridMapUtil.ResetCachedData();
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, Matrix4x4 covMatrix)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, out Matrix4x4 covMatrix)
         {
-            return scanMatcher.MatchData(beginEstimateWorld, gridMapUtil, dataContainer, covMatrix, 20);
+            return scanMatcher.MatchData(beginEstimateWorld, gridMapUtil, dataContainer, out covMatrix, 20);
         }
 
         public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
         {
             gridMap.UpdateByScan(dataContainer, robotPoseWorld);
+        }
+
+        public void AddMapMutex(int i, IMapLocker mapMutex)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IMapLocker GetMapMutex(int i)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetUpdateFactorFree(float factor)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetUpdateFactorOccupied(float factor)
+        {
+            throw new NotImplementedException();
         }
     }
 }
