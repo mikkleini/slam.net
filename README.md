@@ -10,7 +10,7 @@ This is based on the CoreSLAM algorithm by Bruno Steux, Oussama El Hamzaoui (I c
 The Monte-carlo search function has been looked from some other C and C++ implementations but I did differently.
 First of all there's always fixed number of iterations to get stable speed.
 Additionally the search is done on multiple threads to get maximum performance on multi-core platform.
-It also uses [Redzen](https://www.nuget.org/packages/Redzen) fast normal distribution random number generator.
+It also uses [Redzen](https://www.nuget.org/packages/Redzen) fast normal distribution random number generator and the trick is to pre-calculate random numbers. So when it's time do localization, the right amount of random numbers are ready to use.
 
 I used it in my [Robotex](https://robotex.international) 2019 robotic competition robot "Ace Ventura" and won the "Starship animal rescure" competition so it kind of works.
 It runs on Raspberry Pi 4 with .NET Core 3.0 pretty well, there's some CPU time left over for other tasks as well.
