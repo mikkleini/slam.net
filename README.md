@@ -18,16 +18,18 @@ To speed it up even further it should be possible to use ARM SIMD instruction se
 Here's picture of my robots view. The grayscale is the CoreSLAM hole map. The red overlay is objects - they are detected slightly differently, but the code is in the same C# library.
 ![Demo map](demo_map.png)
 
-The problem is with this SLAM algorithm that it's heavily dependent on odometry and even with odometry the map tilts and shifts.
+The problem is with this SLAM algorithm that it's heavily dependent on odometry and even with odometry the map tilts and slides over time.
 
 *HectorSLAM*
 
 This is the attempt to port [HectorSLAM](https://github.com/tu-darmstadt-ros-pkg/hector_slam) algorithm from C++ to C#.
-HectorSLAM is a ROS package and based on what i've read and seen it looks much more stable than CoreSLAM.
+HectorSLAM is a ROS package and based on what I've read and seen it looks much more stable than CoreSLAM.
 Since I'm not very fond of C++ boilerplate code (getters and setters) I started porting it and actually it went much smaller in lines of code.
 However the is very very raw and doesn't work. I've just manage to make something compile, but many things are commented out.
 I wanted to use .NET Core System.Numerics namespace, but it doesn't have 3x3 matrixes and other helper functions which are in Eigen C++ library what the HectorSLAM uses.
 
 Anyway, maybe somebody wants to use them.
 
-You can get the RPLidar A1 C# code from here: https://github.com/mikkleini/rplidar.net
+----
+
+You can get the RPLidar A1 C# code from [here](https://github.com/mikkleini/rplidar.net). To do path planning, you can use my fork of [Roy-T AStar]( https://github.com/mikkleini/AStar). The master AStar library is now very different and due to lack of agent size wouldn't fit.
