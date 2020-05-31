@@ -1,14 +1,14 @@
 # slam.net
-Simultaneous localization and mapping libraries for C#
+Simultaneous Localization And Mapping (SLAM) libraries for C#
 
 Here are two C# SLAM implementations: CoreSLAM and HectorSLAM. Both use base classes from BaseSLAM library.
 
 *CoreSLAM*
 
 This is based on the CoreSLAM algorithm by Bruno Steux, Oussama El Hamzaoui (I can't find an authentic link to it...).
-The Monte-carlo search function has been looked at some other C and C++ algorithms but I did differently.
+The Monte-carlo search function has been looked from some other C and C++ implementations but I did differently.
 First of all there's always fixed number of iterations to get stable speed.
-Additionally the search run on multiple threads to get get maximum performance on multi-core platform.
+Additionally the search is done on multiple threads to get maximum performance on multi-core platform.
 It also uses [Redzen](https://www.nuget.org/packages/Redzen) fast normal distribution random number generator.
 
 I used it in my [Robotex](https://robotex.international) 2019 robotic competition robot "Ace Ventura" and won the "Starship animal rescure" competition so it kind of works.
