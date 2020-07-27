@@ -14,11 +14,13 @@ namespace HectorSLAM.Map
         private readonly GridMapCacheArray cacheMethod;
         private readonly GridMap gridMap;
         private readonly List<Vector3> samplePoints;
+        private readonly float[] intensities = new float[4] { 0, 0, 0, 0 };
+        private readonly float mapObstacleThreshold;
 
-        private Vector4 intensities;
-        private int size = 0;
-        private float mapObstacleThreshold;
-
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="gridMap"></param>
         public OccGridMapUtil(GridMap gridMap)
         {
             cacheMethod = new GridMapCacheArray();
@@ -116,7 +118,7 @@ namespace HectorSLAM.Map
 
             float invLhNormalizer = 1 / likelihoods.Sum();
 
-            Console.WriteLine("lhs: " + likelihoods);
+            System.Diagnostics.Debug.WriteLine($"lhs: {likelihoods}");
 
             Vector3 mean = Vector3.Zero;
 
@@ -134,16 +136,14 @@ namespace HectorSLAM.Map
                 Vector3 sigPointMinusMean = sigmaPoints[i] - mean;
                 Matrix4x4 sp = new Matrix4x4(sigPointMinusMean.X, sigPointMinusMean.Y, sigPointMinusMean.Z, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                 Matrix4x4 spt = Matrix4x4.Transpose(sp);
-                
-                // TODO : covMatrixMap += (likelihoods[i] * invLhNormalizer) * (sp * spt);
+                covMatrixMap += Matrix4x4.Multiply(Matrix4x4.Multiply(sp, spt), likelihoods[i] * invLhNormalizer);
 
-                //covMatrixMap += (likelihoods[i] * invLhNormalizer) * (sigPointMinusMean * (sigPointMinusMean.transpose()));
+                // Original loop:
+                // Eigen::Vector3f sigPointMinusMean(sigmaPoints.block<3, 1>(0, i) -mean);
+                // covMatrixMap += (likelihoods[i] * invLhNormalizer) * (sigPointMinusMean * (sigPointMinusMean.transpose()));
             }
 
             return covMatrixMap;
-
-            //covMatrix.cwise() * invLhNormalizer;
-            //transform = getTransformForState(Vector3(x-deltaTrans, y, ang);
         }
 
         public Matrix4x4 GetCovMatrixWorldCoords(Matrix4x4 covMatMap)
@@ -218,10 +218,10 @@ namespace HectorSLAM.Map
                 return 0.0f;
             }
 
-            //map coords are alway positive, floor them by casting to int
+            // map coords are alway positive, floor them by casting to int
             Point indMin = coords.ToFloorPoint();
 
-            //get factors for bilinear interpolation
+            // get factors for bilinear interpolation
             Vector2 factors = coords - indMin.ToVector2();
 
             int sizeX = gridMap.Dimensions.X;
@@ -229,109 +229,91 @@ namespace HectorSLAM.Map
 
             // get grid values for the 4 grid points surrounding the current coords. Check cached data first, if not contained
             // filter gridPoint with gaussian and store in cache.
-            if (cacheMethod.ContainsCachedData(index, out float ix))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[0]))
             {
-                intensities.X = ix;
-            }
-            else
-            {
-                intensities.X = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities.X);
+                intensities[0] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[0]);
             }
 
             ++index;
 
-            if (cacheMethod.ContainsCachedData(index, out float iy))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[1]))
             {
-                intensities.Y = iy;
-            }
-            else
-            {
-                intensities.Y = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities.Y);
+                intensities[1] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[1]);
             }
 
             index += sizeX - 1;
 
-            if (cacheMethod.ContainsCachedData(index, out float iZ))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[2]))
             {
-                intensities.Z = iZ;
-            }
-            else
-            {
-                intensities.Z = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities.Z);
+                intensities[2] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[2]);
             }
 
             ++index;
 
-            if (cacheMethod.ContainsCachedData(index, out float iw))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[3]))
             {
-                intensities.W = iw;
-            }
-            else
-            {
-                intensities.W = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities.W);
+                intensities[3] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[3]);
             }
 
             float xFacInv = (1.0f - factors.X);
             float yFacInv = (1.0f - factors.Y);
 
             return
-                  ((intensities.X * xFacInv + intensities.Y * factors.X) * (yFacInv)) +
-                  ((intensities.Y * xFacInv + intensities.W * factors.X) * (factors.Y));
+                  ((intensities[0] * xFacInv + intensities[1] * factors.X) * (yFacInv)) +
+                  ((intensities[1] * xFacInv + intensities[3] * factors.X) * (factors.Y));
         }
 
         public Vector3 InterpMapValueWithDerivatives(Vector2 coords)
         {
-            /*
-            //check if coords are within map limits.
-            if (concreteGridMap->pointOutOfMapBounds(coords))
+            // Check if coords are within map limits.
+            if (gridMap.DimensionProperties.IsPointOutOfMapBounds(coords))
             {
-                return Vector3(0.0f, 0.0f, 0.0f);
+                return Vector3.Zero;
             }
 
-            //map coords are always positive, floor them by casting to int
-            Point indMin(coords.cast<int>());
+            // Map coords are always positive, floor them by casting to int
+            Point indMin = coords.ToFloorPoint();
 
-            //get factors for bilinear interpolation
-            Vector2 factors(coords -indMin.cast<float>());
+            // get factors for bilinear interpolation
+            Vector2 factors = coords - indMin.ToVector2();
 
-            int sizeX = concreteGridMap->getSizeX();
-
-            int index = indMin[1] * sizeX + indMin[0];
+            int sizeX = gridMap.Dimensions.X;
+            int index = indMin.Y * sizeX + indMin.X;
 
             // get grid values for the 4 grid points surrounding the current coords. Check cached data first, if not contained
             // filter gridPoint with gaussian and store in cache.
-            if (!cacheMethod.containsCachedData(index, intensities[0]))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[0]))
             {
-                intensities[0] = getUnfilteredGridPoint(index);
-                cacheMethod.cacheData(index, intensities[0]);
+                intensities[0] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[0]);
             }
 
             ++index;
 
-            if (!cacheMethod.containsCachedData(index, intensities[1]))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[1]))
             {
-                intensities[1] = getUnfilteredGridPoint(index);
-                cacheMethod.cacheData(index, intensities[1]);
+                intensities[1] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[1]);
             }
 
             index += sizeX - 1;
 
-            if (!cacheMethod.containsCachedData(index, intensities[2]))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[2]))
             {
-                intensities[2] = getUnfilteredGridPoint(index);
-                cacheMethod.cacheData(index, intensities[2]);
+                intensities[2] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[2]);
             }
 
             ++index;
 
-            if (!cacheMethod.containsCachedData(index, intensities[3]))
+            if (!cacheMethod.ContainsCachedData(index, out intensities[3]))
             {
-                intensities[3] = getUnfilteredGridPoint(index);
-                cacheMethod.cacheData(index, intensities[3]);
+                intensities[3] = GetUnfilteredGridPoint(index);
+                cacheMethod.CacheData(index, intensities[3]);
             }
 
             float dx1 = intensities[0] - intensities[1];
@@ -340,18 +322,14 @@ namespace HectorSLAM.Map
             float dy1 = intensities[0] - intensities[2];
             float dy2 = intensities[1] - intensities[3];
 
-            float xFacInv = (1.0f - factors[0]);
-            float yFacInv = (1.0f - factors[1]);
+            float xFacInv = (1.0f - factors.X);
+            float yFacInv = (1.0f - factors.Y);
 
-            return Vector3(
-              ((intensities[0] * xFacInv + intensities[1] * factors[0]) * (yFacInv)) +
-              ((intensities[2] * xFacInv + intensities[3] * factors[0]) * (factors[1])),
-              -((dx1 * xFacInv) + (dx2 * factors[0])),
-              -((dy1 * yFacInv) + (dy2 * factors[1]))
-            );
-            */
-
-            return Vector3.Zero;
+            return new Vector3(
+                ((intensities[0] * xFacInv + intensities[1] * factors.X) * (yFacInv)) +
+                ((intensities[2] * xFacInv + intensities[3] * factors.X) * (factors.Y)),
+                -((dx1 * xFacInv) + (dx2 * factors.X)),
+                -((dy1 * yFacInv) + (dy2 * factors.Y)));
         }
 
         public Matrix4x4 GetTransformForState(Vector3 transVector)

@@ -34,7 +34,7 @@ namespace HectorSLAM.Main
 
             for (int i = 0; i < numDepth; ++i)
             {
-                Console.WriteLine($"HectorSM map lvl {i}: cellLength: {mapResolution} res x: {resolution.X} res y: {resolution.Y}");
+                System.Diagnostics.Debug.WriteLine($"HectorSM map lvl {i}: cellLength: {mapResolution} res x: {resolution.X} res y: {resolution.Y}");
                 GridMap gridMap = new GridMap(mapResolution, resolution, new Vector2(mid_offset_x, mid_offset_y));
                 OccGridMapUtilConfig gridMapUtil = new OccGridMapUtilConfig(gridMap);
                 ScanMatcher scanMatcher = new ScanMatcher(drawInterface, debugInterface);

@@ -55,6 +55,16 @@ namespace HectorSLAM.Main
             MapRep.SetUpdateFactorOccupied(occupied_factor);
         }
 
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="mapResolution"></param>
+        /// <param name="mapSizeX"></param>
+        /// <param name="mapSizeY"></param>
+        /// <param name="startCoords"></param>
+        /// <param name="multiResSize"></param>
+        /// <param name="drawInterface"></param>
+        /// <param name="debugInterface"></param>
         public HectorSLAMProcessor(float mapResolution, int mapSizeX, int mapSizeY, Vector2 startCoords, int multiResSize, IDrawInterface drawInterface = null, IHectorDebugInfo debugInterface = null)
         {
             this.drawInterface = drawInterface;
@@ -76,7 +86,7 @@ namespace HectorSLAM.Main
         /// <param name="mapWithoutMatching">Map without matching ?</param>
         public void Update(DataContainer dataContainer, Vector3 poseHintWorld, bool mapWithoutMatching = false)
         {
-            //Console.WriteLine($"ph: {poseHintWorld}");
+            System.Diagnostics.Debug.WriteLine($"ph: {poseHintWorld}");
 
             if (!mapWithoutMatching)
             {
@@ -87,10 +97,11 @@ namespace HectorSLAM.Main
             {
                 LastScanMatchPose = poseHintWorld;
             }
-            //std::cout << "\nt1:\n" << newPoseEstimateWorld << "\n";
 
+            //std::cout << "\nt1:\n" << newPoseEstimateWorld << "\n";
             //std::cout << "\n1";
             //std::cout << "\n" << lastScanMatchPose << "\n";
+
             if (Util.Util.PoseDifferenceLargerThan(LastScanMatchPose, LastMapUpdatePose, MinDistanceDiffForMapUpdate, MinAngleDiffForMapUpdate) || mapWithoutMatching)
             {
                 MapRep.UpdateByScan(dataContainer, LastScanMatchPose);
@@ -124,10 +135,6 @@ namespace HectorSLAM.Main
         {
             LastMapUpdatePose = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
             LastScanMatchPose = new Vector3(0.0f, 0.0f, 0.0f);
-
-            //lastScanMatchPose.x() = -10.0f;
-            //lastScanMatchPose.y() = -15.0f;
-            //lastScanMatchPose.z() = M_PI*0.15f;
 
             MapRep.Reset();
         }

@@ -17,8 +17,8 @@ namespace HectorSLAM.Map
         // Scaling factor from world to map.
         public float ScaleToMap { get; private set; }
 
-        public Matrix4x4 worldTmap;     ///< Homogenous transform from map to world coordinates.
-        public Matrix4x4 mapTworld;     ///< Homogenous transform from world to map coordinates.
+        protected Matrix4x4 worldTmap;     ///< Homogenous transform from map to world coordinates.
+        protected Matrix4x4 mapTworld;     ///< Homogenous transform from world to map coordinates.
 
         public MapDimensionProperties DimensionProperties { get; }
         public Point Dimensions => DimensionProperties.Dimensions;
@@ -196,12 +196,11 @@ namespace HectorSLAM.Map
             }
         }
 
-        /**
-        * Set the map transformations
-        * @param xWorld The origin of the map coordinate system on the x axis in world coordinates
-        * @param yWorld The origin of the map coordinate system on the y axis in world coordinates
-        * @param The cell length of the grid map
-        */
+        /// <summary>
+        /// Set the map transformations
+        /// </summary>
+        /// <param name="topLeftOffset">The origin of the map coordinate system in world coordinates</param>
+        /// <param name="cellLength">The cell length of the grid map</param>
         private void SetMapTransformation(Vector2 topLeftOffset, float cellLength)
         {
             DimensionProperties.CellLength = cellLength;
@@ -223,10 +222,14 @@ namespace HectorSLAM.Map
             lastUpdateIndex++;
         }
 
-
-        /**
-        * Returns the rectangle ([xMin,yMin],[xMax,xMax]) containing non-default cell values
-        */
+        /// <summary>
+        /// Returns the rectangle ([xMin,yMin],[xMax,xMax]) containing non-default cell values
+        /// </summary>
+        /// <param name="xMax"></param>
+        /// <param name="yMax"></param>
+        /// <param name="xMin"></param>
+        /// <param name="yMin"></param>
+        /// <returns></returns>
         public bool GetMapExtends(out int xMax, out int yMax, out int xMin, out int yMin)
         {
             int lowerStart = -1;

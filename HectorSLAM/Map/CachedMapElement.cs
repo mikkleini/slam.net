@@ -4,7 +4,7 @@ using System.Text;
 
 namespace HectorSLAM.Map
 {
-    public class CachedMapElement
+    public struct CachedMapElement
     {
         public float value;
         public int index;
