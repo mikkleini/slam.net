@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net5.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\box2d-netstandard\src\box2dx\Box2D.NetStandard\Box2D.NetStandard.csproj" />
+    <ProjectReference Include="..\CoreSLAM\CoreSLAM.csproj" />
+  </ItemGroup>
+
+</Project>

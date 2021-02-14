@@ -15,7 +15,7 @@ namespace BaseSLAM
         /// <summary>
         /// Scan rays
         /// </summary>
-        public List<Ray> Rays { get; set; }
+        public List<Ray> Rays { get; set; } = new List<Ray>();
 
         /// <summary>
         /// Pose at the moment of scanning
