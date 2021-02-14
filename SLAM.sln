@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30907.101
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BaseSLAM", "BaseSLAM\BaseSLAM.csproj", "{D4F4CC7C-0F46-4BBE-AE2C-5A00B37B829B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoreSLAM", "CoreSLAM\CoreSLAM.csproj", "{F850EDA3-F324-4774-B768-3FB2247400B3}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HectorSLAM", "HectorSLAM\HectorSLAM.csproj", "{F808809D-99A8-4D24-81E3-FB26F4AD5DFD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D4F4CC7C-0F46-4BBE-AE2C-5A00B37B829B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4F4CC7C-0F46-4BBE-AE2C-5A00B37B829B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4F4CC7C-0F46-4BBE-AE2C-5A00B37B829B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4F4CC7C-0F46-4BBE-AE2C-5A00B37B829B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F850EDA3-F324-4774-B768-3FB2247400B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F850EDA3-F324-4774-B768-3FB2247400B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F850EDA3-F324-4774-B768-3FB2247400B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F850EDA3-F324-4774-B768-3FB2247400B3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F808809D-99A8-4D24-81E3-FB26F4AD5DFD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F808809D-99A8-4D24-81E3-FB26F4AD5DFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F808809D-99A8-4D24-81E3-FB26F4AD5DFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F808809D-99A8-4D24-81E3-FB26F4AD5DFD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BFC10B2E-9120-4D37-9F96-7080F7EF15DB}
+	EndGlobalSection
+EndGlobal
