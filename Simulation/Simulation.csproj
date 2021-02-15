@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\box2d-netstandard\src\box2dx\Box2D.NetStandard\Box2D.NetStandard.csproj" />
+    <ProjectReference Include="..\BaseSLAM\BaseSLAM.csproj" />
     <ProjectReference Include="..\CoreSLAM\CoreSLAM.csproj" />
   </ItemGroup>
 

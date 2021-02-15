@@ -7,8 +7,8 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <Canvas x:Name="Field" MouseMove="Field_MouseMove" HorizontalAlignment="Center" VerticalAlignment="Center" Background="AntiqueWhite">
-            
+        <Canvas x:Name="Field" HorizontalAlignment="Center" VerticalAlignment="Center"
+                MouseMove="Field_MouseMove" MouseDown="Field_MouseDown" MouseWheel="Field_MouseWheel">
         </Canvas>
     </Grid>
 </Window>
