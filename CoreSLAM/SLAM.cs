@@ -14,7 +14,7 @@ namespace CoreSLAM
     /// <summary>
     /// Core SLAM algorithm
     /// </summary>
-    public class SLAM
+    public class SLAM : IDisposable
     {
         // Constants
         private const ushort TS_NO_OBSTACLE = 65500;
@@ -25,9 +25,8 @@ namespace CoreSLAM
         private int scanCount;
         private Vector3 lastOdometryPose;
         private readonly bool[,] noHitMap;
-        private readonly Thread[] searchThreads;
         private readonly MonteCarloSearchContext[] searchContexts;
-        private readonly AutoResetEvent[] searchResultSignals;
+        private readonly CancellationTokenSource cts;
 
         /// <summary>
         /// Physical square map size (length of edge) in meters
@@ -111,23 +110,19 @@ namespace CoreSLAM
             Reset();
 
             // Create parallel search threads
-            searchThreads = new Thread[numSearchThreads];
             searchContexts = new MonteCarloSearchContext[numSearchThreads];
-            searchResultSignals = new AutoResetEvent[numSearchThreads];
+            cts = new CancellationTokenSource();
 
             for (int i = 0; i < numSearchThreads; i++)
             {
                 searchContexts[i] = new MonteCarloSearchContext()
                 {
-                    InputSignal = new AutoResetEvent(false),
-                    OutputSignal = new AutoResetEvent(false),
-                    InputQueue = new ConcurrentQueue<MonteCarloSearchInput>(),
-                    OutputQueue = new ConcurrentQueue<MonteCarloSearchResult>()
+                    SearchThread = new Thread(new ParameterizedThreadStart(MonteCarloSearchJob)),
+                    InputQueue = new SignalConcurrentQueue<MonteCarloSearchInput>(),
+                    OutputQueue = new SignalConcurrentQueue<MonteCarloSearchResult>()
                 };
 
-                searchResultSignals[i] = searchContexts[i].OutputSignal;
-                searchThreads[i] = new Thread(new ParameterizedThreadStart(MonteCarloSearchJob));
-                searchThreads[i].Start(searchContexts[i]);
+                searchContexts[i].SearchThread.Start(searchContexts[i]);
             }
         }
 
@@ -649,41 +644,13 @@ namespace CoreSLAM
         }
 
         /// <summary>
-        /// Monte-carlo search input
-        /// </summary>
-        private struct MonteCarloSearchInput
-        {
-            public ScanCloud cloud;
-            public Vector3 startPose;
-        }
-
-        /// <summary>
-        /// Monte-carlo search result
-        /// </summary>
-        private struct MonteCarloSearchResult
-        {
-            public Vector3 pose;
-            public int distance;
-        }
-
-        /// <summary>
-        /// Monte-carlo search context
-        /// </summary>
-        private struct MonteCarloSearchContext
-        {
-            public AutoResetEvent InputSignal;
-            public AutoResetEvent OutputSignal;
-            public ConcurrentQueue<MonteCarloSearchInput> InputQueue;
-            public ConcurrentQueue<MonteCarloSearchResult> OutputQueue;
-        }
-
-        /// <summary>
         /// Monte-carlo search job
         /// </summary>
         /// <param name="state">Context</param>
         private void MonteCarloSearchJob(object state)
         {
             MonteCarloSearchContext context = (MonteCarloSearchContext)state;
+            WaitHandle[] waitHandles = new WaitHandle[] { cts.Token.WaitHandle, context.InputQueue.EnqueuedItemSignal };
             Queue<float> randomXY = new Queue<float>();
             Queue<float> randomTheta = new Queue<float>();
 
@@ -692,7 +659,7 @@ namespace CoreSLAM
             ZigguratGaussianSampler samplerTheta = new ZigguratGaussianSampler(0.0f, SigmaTheta);
 
             // Working loop
-            while (true)
+            while (!cts.IsCancellationRequested)
             {
                 // Make sure there are enough random numbers in queue
                 // XY queue has to be twice as large as theta queue
@@ -707,21 +674,27 @@ namespace CoreSLAM
                 }
 
                 // Wait for job input
-                if (!context.InputQueue.IsEmpty || context.InputSignal.WaitOne(10))
+                switch (WaitHandle.WaitAny(waitHandles))
                 {
-                    if (context.InputQueue.TryDequeue(out MonteCarloSearchInput input))
-                    {
-                        // Find best position
-                        Vector3 pose = MonteCarloSearch(input.cloud, input.startPose, randomXY, randomTheta, SearchIterationsPerThread, out int distance);
+                    // Cancellation ?
+                    case 0:
+                        break;
 
-                        // Put the result to output queue
-                        context.OutputQueue.Enqueue(new MonteCarloSearchResult()
+                    // Got input ?
+                    case 1:
+                        if (context.InputQueue.TryDequeue(out MonteCarloSearchInput input))
                         {
-                            pose = pose,
-                            distance = distance
-                        });
-                        context.OutputSignal.Set();
-                    }
+                            // Find best position
+                            Vector3 pose = MonteCarloSearch(input.cloud, input.startPose, randomXY, randomTheta, SearchIterationsPerThread, out int distance);
+
+                            // Put the result to output queue
+                            context.OutputQueue.Enqueue(new MonteCarloSearchResult()
+                            {
+                                pose = pose,
+                                distance = distance
+                            });
+                        }
+                        break;
                 }
             }
         }
@@ -738,9 +711,9 @@ namespace CoreSLAM
             // Feed input to jobs
             for (int i = 0; i < searchContexts.Length; i++)
             {
-                // Just in case reset output
+                // Just in case reset output queues and signals
                 searchContexts[i].OutputQueue.Clear();
-                searchContexts[i].OutputSignal.Reset();
+                searchContexts[i].OutputQueue.EnqueuedItemSignal.Reset();
 
                 // Add input data to jobs
                 searchContexts[i].InputQueue.Enqueue(new MonteCarloSearchInput()
@@ -748,11 +721,10 @@ namespace CoreSLAM
                     cloud = cloud,
                     startPose = startPose
                 });
-                searchContexts[i].InputSignal.Set();
             }
 
             // Wait until all jobs are finished
-            WaitHandle.WaitAll(searchResultSignals);
+            WaitHandle.WaitAll(searchContexts.Select(ctx => ctx.OutputQueue.EnqueuedItemSignal).ToArray());
 
             // Find best pose of out all results
             int bestDistance = int.MaxValue;
@@ -806,6 +778,32 @@ namespace CoreSLAM
             // Update maps
             UpdateHoleMap(cloud);
             UpdateObstacleMap(cloud);
+        }
+
+        /// <summary>
+        /// Dispose function
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Internal disposing function.
+        /// </summary>
+        /// <param name="disposing"></param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                cts.Cancel();
+
+                foreach (MonteCarloSearchContext ctx in searchContexts)
+                {
+                    ctx.SearchThread.Join();
+                }
+            }
         }
     }
 }

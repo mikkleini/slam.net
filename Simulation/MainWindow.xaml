@@ -5,10 +5,16 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Simulation"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        <Canvas x:Name="Field" HorizontalAlignment="Center" VerticalAlignment="Center"
-                MouseMove="Field_MouseMove" MouseDown="Field_MouseDown" MouseWheel="Field_MouseWheel">
+        Title="MainWindow" Height="800" Width="800"
+        Closed="Window_Closed">
+    <StackPanel Orientation="Vertical">
+        <ToolBar Height="30">
+            <TextBlock x:Name="RealPosLabel" Width="200" VerticalAlignment="Center">Real pos: -</TextBlock>
+            <TextBlock x:Name="EstimatedPosLabel" Width="200" VerticalAlignment="Center">Estimated pos: -</TextBlock>
+            <Button x:Name="ResetButton" Click="ResetButton_Click">Reset</Button>
+        </ToolBar>
+        <Canvas x:Name="DrawArea"
+            MouseMove="Field_MouseMove" MouseDown="Field_MouseDown" MouseWheel="Field_MouseWheel">
         </Canvas>
-    </Grid>
+    </StackPanel>
 </Window>

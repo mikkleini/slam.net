@@ -8,46 +8,6 @@ namespace HectorSLAM.Util
 {
     public static class Util
     {
-        /// <summary>
-        /// Point to Vector2
-        /// </summary>
-        /// <param name="point">Point</param>
-        /// <returns>Vector2</returns>
-        public static Vector2 ToVector2(this Point point)
-        {
-            return new Vector2(point.X, point.Y);
-        }
-
-        /// <summary>
-        /// Vector3 to Vector2
-        /// </summary>
-        /// <param name="vector">Vector3</param>
-        /// <returns>Vector2</returns>
-        public static Vector2 ToVector2(this Vector3 vector)
-        {
-            return new Vector2(vector.X, vector.Y);
-        }
-
-        /// <summary>
-        /// Vector2 to Point with flooring
-        /// </summary>
-        /// <param name="vector">Vector3</param>
-        /// <returns>Vector2</returns>
-        public static Point ToFloorPoint(this Vector2 vector)
-        {
-            return new Point((int)MathF.Floor(vector.X), (int)MathF.Floor(vector.Y));
-        }
-
-        /// <summary>
-        /// Vector2 to Point with rounding
-        /// </summary>
-        /// <param name="vector">Vector3</param>
-        /// <returns>Vector2</returns>
-        public static Point ToRoundPoint(this Vector2 vector)
-        {
-            return new Point((int)MathF.Round(vector.X), (int)MathF.Round(vector.Y));
-        }
-
         public static float NormalizeAnglePos(float angle)
         {
             float pi2 = MathF.PI * 2.0f;
@@ -70,16 +30,6 @@ namespace HectorSLAM.Util
         public static float Sqr(float val)
         {
             return val * val;
-        }
-
-        public static float ToDeg(float radVal)
-        {
-            return radVal * (180.0f / MathF.PI);
-        }
-
-        public static float ToRad(float degVal)
-        {
-            return degVal * (MathF.PI / 180.0f);
         }
 
         public static bool PoseDifferenceLargerThan(Vector3 pose1, Vector3 pose2, float distanceDiffThresh, float angleDiffThresh)

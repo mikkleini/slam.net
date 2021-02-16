@@ -10,8 +10,6 @@ namespace BaseSLAM
     /// </summary>
     public static class MathEx
     {
-        public const float PI = 3.141592f;
-
         /// <summary>
         /// Limit floating point number with minimum and maximum value
         /// </summary>
@@ -19,6 +17,7 @@ namespace BaseSLAM
         /// <param name="min">Minimum</param>
         /// <param name="max">Maximum</param>
         /// <returns>Limited value</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float Limit(float x, float min, float max)
         {
             return MathF.Max(min, MathF.Min(max, x));
@@ -31,6 +30,7 @@ namespace BaseSLAM
         /// <param name="min">Minimum</param>
         /// <param name="max">Maximum</param>
         /// <returns>Limited value</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Limit(int x, int min, int max)
         {
             return Math.Max(min, Math.Min(max, x));
@@ -41,9 +41,10 @@ namespace BaseSLAM
         /// </summary>
         /// <param name="deg">Degrees</param>
         /// <returns>Radians</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float DegToRad(float deg)
         {
-            return (deg * PI) / 180.0f;
+            return (deg * MathF.PI) / 180.0f;
         }
 
         /// <summary>
@@ -51,9 +52,10 @@ namespace BaseSLAM
         /// </summary>
         /// <param name="rad">Radians</param>
         /// <returns>Degrees</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float RadToDeg(float rad)
         {
-            return (rad * 180.0f) / PI;
+            return (rad * 180.0f) / MathF.PI;
         }
 
         /// <summary>

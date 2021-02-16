@@ -20,7 +20,7 @@ namespace Simulation
     /// </summary>
     public class Field
     {
-        private World world;
+        private readonly World world;
 
         /// <summary>
         /// Constructor
@@ -38,32 +38,34 @@ namespace Simulation
         /// <summary>
         /// Create default field
         /// </summary>
-        public void CreateDefaultField()
+        /// <param name="scale">Field scale</param>
+        /// <param name="offset">Offset</param>
+        public void CreateDefaultField(float scale, Vector2 offset)
         {
             Vector2[] outerEdges = new Vector2[]
             {
-                new Vector2(-15.0f, -10.0f),
-                new Vector2(+15.0f, -10.0f),
-                new Vector2(+15.0f,  -7.0f),
-                new Vector2(+12.0f,  -6.0f),
-                new Vector2(+10.0f,  -2.0f),
-                new Vector2(+15.0f,  -2.0f),
-                new Vector2(+15.0f, +10.0f),
-                new Vector2(-7.0f,  +10.0f),
-                new Vector2(-7.0f,  +5.0f),
-                new Vector2(-8.0f,  +5.0f),
-                new Vector2(-8.0f,  +10.0f),
-                new Vector2(-15.0f, +10.0f),
+                offset + new Vector2(0.00f, 0.0f) * scale,
+                offset + new Vector2(1.00f, 0.0f) * scale,
+                offset + new Vector2(1.00f, 0.2f) * scale,
+                offset + new Vector2(0.80f, 0.3f) * scale,
+                offset + new Vector2(0.80f, 0.5f) * scale,
+                offset + new Vector2(1.00f, 0.4f) * scale,
+                offset + new Vector2(1.00f, 1.0f) * scale,
+                offset + new Vector2(0.6f,  1.0f) * scale,
+                offset + new Vector2(0.6f,  0.8f) * scale,
+                offset + new Vector2(0.5f,  0.8f) * scale,
+                offset + new Vector2(0.5f,  1.0f) * scale,
+                offset + new Vector2(0.0f,  1.0f) * scale,
             };
 
             AddEdges(outerEdges, true);
 
             Vector2[] innerEdges = new Vector2[]
             {
-                new Vector2(-10.0f, -5.0f),
-                new Vector2(-8.0f,  -5.0f),
-                new Vector2(-6.0f,  +1.0f),
-                new Vector2(-8.0f, +2.0f),
+                offset + new Vector2(0.2f, 0.3f) * scale,
+                offset + new Vector2(0.3f, 0.3f) * scale,
+                offset + new Vector2(0.4f, 0.7f) * scale,
+                offset + new Vector2(0.3f, 0.7f) * scale,
             };
 
             AddEdges(innerEdges, true);

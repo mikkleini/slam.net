@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace BaseSLAM
@@ -114,6 +116,50 @@ namespace BaseSLAM
                 BitConverter.ToSingle(data, index),
                 BitConverter.ToSingle(data, index + 4),
                 BitConverter.ToSingle(data, index + 8));
+        }
+
+        /// <summary>
+        /// Point to Vector2
+        /// </summary>
+        /// <param name="point">Point</param>
+        /// <returns>Vector2</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector2 ToVector2(this Point point)
+        {
+            return new Vector2(point.X, point.Y);
+        }
+
+        /// <summary>
+        /// Vector3 to Vector2
+        /// </summary>
+        /// <param name="vector">Vector3</param>
+        /// <returns>Vector2</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector2 ToVector2(this Vector3 vector)
+        {
+            return new Vector2(vector.X, vector.Y);
+        }
+
+        /// <summary>
+        /// Vector2 to Point with flooring
+        /// </summary>
+        /// <param name="vector">Vector3</param>
+        /// <returns>Vector2</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Point ToFloorPoint(this Vector2 vector)
+        {
+            return new Point((int)MathF.Floor(vector.X), (int)MathF.Floor(vector.Y));
+        }
+
+        /// <summary>
+        /// Vector2 to Point with rounding
+        /// </summary>
+        /// <param name="vector">Vector3</param>
+        /// <returns>Vector2</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Point ToRoundPoint(this Vector2 vector)
+        {
+            return new Point((int)MathF.Round(vector.X), (int)MathF.Round(vector.Y));
         }
     }
 }
