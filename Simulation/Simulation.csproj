@@ -10,6 +10,7 @@
     <ProjectReference Include="..\BaseSLAM\BaseSLAM.csproj" />
     <ProjectReference Include="..\Box2D\src\box2dx\Box2D.NetStandard\Box2D.NetStandard.csproj" />
     <ProjectReference Include="..\CoreSLAM\CoreSLAM.csproj" />
+    <ProjectReference Include="..\HectorSLAM\HectorSLAM.csproj" />
   </ItemGroup>
 
 </Project>

@@ -12,9 +12,9 @@ using BaseSLAM;
 namespace CoreSLAM
 {
     /// <summary>
-    /// Core SLAM algorithm
+    /// Core SLAM processor
     /// </summary>
-    public class SLAM : IDisposable
+    public class CoreSLAMProcessor : IDisposable
     {
         // Constants
         private const ushort TS_NO_OBSTACLE = 65500;
@@ -99,7 +99,8 @@ namespace CoreSLAM
         /// <param name="holeMapSize">Hole map size in pixels</param>
         /// <param name="obstacleMapSize">Obstacle map size in pixels</param>
         /// <param name="startPose">Start pose</param>
-        public SLAM(float physicalMapSize, int holeMapSize, int obstacleMapSize, Vector3 startPose, int numSearchThreads)
+        /// <param name="numSearchThreads">Number of search threads (0 for no threading)</param>
+        public CoreSLAMProcessor(float physicalMapSize, int holeMapSize, int obstacleMapSize, Vector3 startPose, int numSearchThreads = 0)
         {
             PhysicalMapSize = physicalMapSize;
             HoleMap = new HoleMap(holeMapSize, physicalMapSize);
@@ -109,20 +110,32 @@ namespace CoreSLAM
 
             Reset();
 
-            // Create parallel search threads
-            searchContexts = new MonteCarloSearchContext[numSearchThreads];
+            // Cancellation token
             cts = new CancellationTokenSource();
 
-            for (int i = 0; i < numSearchThreads; i++)
+            // No thread mode ?
+            if (numSearchThreads <= 0)
             {
-                searchContexts[i] = new MonteCarloSearchContext()
+                searchContexts = null;
+            }
+            else
+            {
+                // Create parallel search threads
+                searchContexts = new MonteCarloSearchContext[numSearchThreads];
+                for (int i = 0; i < numSearchThreads; i++)
                 {
-                    SearchThread = new Thread(new ParameterizedThreadStart(MonteCarloSearchJob)),
-                    InputQueue = new SignalConcurrentQueue<MonteCarloSearchInput>(),
-                    OutputQueue = new SignalConcurrentQueue<MonteCarloSearchResult>()
-                };
+                    searchContexts[i] = new MonteCarloSearchContext()
+                    {
+                        SearchThread = new Thread(new ParameterizedThreadStart(MonteCarloSearchJob))
+                        {
+                            Name = $"CoreSLAM #{i + 1}"
+                        },
+                        InputQueue = new SignalConcurrentQueue<MonteCarloSearchInput>(),
+                        OutputQueue = new SignalConcurrentQueue<MonteCarloSearchResult>()
+                    };
 
-                searchContexts[i].SearchThread.Start(searchContexts[i]);
+                    searchContexts[i].SearchThread.Start(searchContexts[i]);
+                }
             }
         }
 
@@ -149,7 +162,7 @@ namespace CoreSLAM
         /// <param name="segments">Scan segments</param>
         /// <param name="odometryPose">Last odometry pose</param>
         /// <param name="cloud">Scan cloud</param>
-        private void ScanSegmentsToCloud(IEnumerable<ScanSegment> segments, Vector3 odometryPose, out ScanCloud cloud)
+        private static void ScanSegmentsToCloud(IEnumerable<ScanSegment> segments, Vector3 odometryPose, out ScanCloud cloud)
         {
             cloud = new ScanCloud();
 
@@ -282,7 +295,7 @@ namespace CoreSLAM
         /// <param name="xy"></param>
         /// <param name="yx"></param>
         /// <returns></returns>
-        private bool ClipRay(int size, ref int xyc, ref int yxc, int xy, int yx)
+        private static bool ClipRay(int size, ref int xyc, ref int yxc, int xy, int yx)
         {
             if (xyc < 0)
             {
@@ -345,7 +358,7 @@ namespace CoreSLAM
             }
             else
             {
-                (dx, dy) = (dy, dx);
+                (dx, _) = (dy, dx);
                 (dxc, dyc) = (dyc, dxc);
                 (incptrx, incptry) = (incptry, incptrx);
                 derrorv = Math.Abs(yp - y2);
@@ -418,7 +431,7 @@ namespace CoreSLAM
         /// <param name="y1">Start y</param>
         /// <param name="x2">Obstacle x</param>
         /// <param name="y2">Obstacle y</param>
-        public void DrawLaserRayOnObstacleMap(bool[,] noHitMap, int x1, int y1, int x2, int y2)
+        private void DrawLaserRayOnObstacleMap(bool[,] noHitMap, int x1, int y1, int x2, int y2)
         {
             int dx = Math.Abs(x2 - x1), sx = Math.Sign(x2 - x1);
             int dy = Math.Abs(y2 - y1), sy = Math.Sign(y2 - y1);
@@ -567,17 +580,17 @@ namespace CoreSLAM
         /// <param name="iterations">Number of search iterations</param>
         /// <param name="distance">Best pose distance value (the lower the better)</param>
         /// <returns>Best found pose</returns>
-        public Vector3 MonteCarloSearch(ScanCloud cloud, Vector3 startPose, float sigmaXY, float sigmaTheta, int iterations, out int distance)
+        private Vector3 MonteCarloSearch(ScanCloud cloud, Vector3 startPose, out int distance)
         {
             // Use 3rd party library for fast normal distribution random number generator
-            var samplerXY = new ZigguratGaussianSampler(0.0f, sigmaXY);
-            var samplerTheta = new ZigguratGaussianSampler(0.0f, sigmaTheta);
+            var samplerXY = new ZigguratGaussianSampler(0.0f, SigmaXY);
+            var samplerTheta = new ZigguratGaussianSampler(0.0f, SigmaTheta);
 
             Vector3 bestPose = startPose;
             int currentDistance = CalculateDistance(cloud, startPose);
             int bestDistance = currentDistance;
 
-            for (int counter = 0; counter < iterations; counter++)
+            for (int counter = 0; counter < SearchIterationsPerThread; counter++)
             {
                 // Create new random position
                 Vector3 currentpose = new Vector3()
@@ -612,7 +625,7 @@ namespace CoreSLAM
         /// <param name="iterations">Number of search iterations</param>
         /// <param name="distance">Best pose distance value (the lower the better)</param>
         /// <returns>Best found pose</returns>
-        public Vector3 MonteCarloSearch(ScanCloud cloud, Vector3 startPose, Queue<float> randomXY, Queue<float> randomTheta, int iterations, out int distance)
+        private Vector3 MonteCarloSearch(ScanCloud cloud, Vector3 startPose, Queue<float> randomXY, Queue<float> randomTheta, int iterations, out int distance)
         {
             Vector3 bestPose = startPose;
             int currentDistance = CalculateDistance(cloud, startPose);
@@ -706,7 +719,7 @@ namespace CoreSLAM
         /// <param name="startPose">Search start position</param>
         /// <param name="distance">Best pose distance value (the lower the better)</param>
         /// <returns>Best found pose</returns>
-        public Vector3 ParallelMonteCarloSearch(ScanCloud cloud, Vector3 startPose, out int distance)
+        private Vector3 ParallelMonteCarloSearch(ScanCloud cloud, Vector3 startPose, out int distance)
         {
             // Feed input to jobs
             for (int i = 0; i < searchContexts.Length; i++)
@@ -764,7 +777,15 @@ namespace CoreSLAM
             if (scanCount >= PositionSearchBeginning)
             {
                 Vector3 searchPose = Pose + (odoPose - lastOdometryPose);
-                newPose = ParallelMonteCarloSearch(cloud, searchPose, out int _);
+
+                if (searchContexts != null)
+                {
+                    newPose = ParallelMonteCarloSearch(cloud, searchPose, out int _);
+                }
+                else
+                {
+                    newPose = MonteCarloSearch(cloud, searchPose, out int _);
+                }
             }
             else
             {
@@ -799,9 +820,12 @@ namespace CoreSLAM
             {
                 cts.Cancel();
 
-                foreach (MonteCarloSearchContext ctx in searchContexts)
+                if (searchContexts != null)
                 {
-                    ctx.SearchThread.Join();
+                    foreach (MonteCarloSearchContext ctx in searchContexts)
+                    {
+                        ctx.SearchThread.Join();
+                    }
                 }
             }
         }

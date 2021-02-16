@@ -1,11 +1,12 @@
-﻿using HectorSLAM.Scan;
-using HectorSLAM.Util;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using BaseSLAM;
+using HectorSLAM.Scan;
+using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
 {

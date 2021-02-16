@@ -18,6 +18,8 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using BaseSLAM;
 using CoreSLAM;
+using HectorSLAM;
+using HectorSLAM.Main;
 
 namespace Simulation
 {
@@ -27,7 +29,7 @@ namespace Simulation
     public partial class MainWindow : Window
     {
         // Constnts
-        private const int numScanPoints = 400;     // Scan points per revolution        
+        private const int numScanPoints = 400;     // Scan points per revolution
         private const float scanPerSecond = 7.0f;  // Scan / second
         private const float maxScanDist = 40.0f;   // Meters
         private const float measureError = 0.02f;  // Meters
@@ -38,8 +40,9 @@ namespace Simulation
         private readonly DispatcherTimer drawTimer;
         private Vector2 startPos;
         private Vector2 lidarPos;
-        private readonly CoreSLAM.SLAM slam;
-        private readonly System.Threading.Timer lidarTimer;
+        private readonly CoreSLAMProcessor coreSlam;
+        private readonly HectorSLAMProcessor hectorSlam;
+        private readonly Timer lidarTimer;
         private readonly WriteableBitmap holeMapBitmap;
         private bool doReset;
 
@@ -54,12 +57,12 @@ namespace Simulation
             startPos = new Vector2(20.0f, 20.0f);
             lidarPos = startPos;
 
-            slam = new SLAM(40.0f, 256, 64, new Vector3(lidarPos.X, lidarPos.Y, 0.0f), 4)
+            coreSlam = new CoreSLAMProcessor(40.0f, 256, 64, new Vector3(lidarPos.X, lidarPos.Y, 0.0f), 4)
             {
                 HoleWidth = 2.0f,
                 SigmaXY = 1.0f
             };
-            holeMapBitmap = new WriteableBitmap(slam.HoleMap.Size, slam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
+            holeMapBitmap = new WriteableBitmap(coreSlam.HoleMap.Size, coreSlam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
 
             // Create field
             field.CreateDefaultField(30.0f, new Vector2(5.0f, 5.0f));
@@ -71,7 +74,7 @@ namespace Simulation
             // Start periodic draw function
             drawTimer = new DispatcherTimer();
             drawTimer.Tick += (s, e) => Draw();
-            drawTimer.Interval = TimeSpan.FromMilliseconds(20);
+            drawTimer.Interval = TimeSpan.FromMilliseconds(20); // 50 fps
             drawTimer.Start();
 
             // Start scan timer in another thread
@@ -87,7 +90,7 @@ namespace Simulation
         {
             drawTimer.Stop();
             lidarTimer.Dispose();
-            slam.Dispose();
+            coreSlam.Dispose();
         }
 
         /// <summary>
@@ -97,13 +100,13 @@ namespace Simulation
         {
             if (doReset)
             {
-                slam.Reset();
+                coreSlam.Reset();
                 lidarPos = startPos;
                 doReset = false;
             }
 
-            ScanSegments(lidarPos, slam.Pose, out List<ScanSegment> scanSegments);
-            slam.Update(scanSegments);
+            ScanSegments(lidarPos, coreSlam.Pose, out List<ScanSegment> scanSegments);
+            coreSlam.Update(scanSegments);
         }
 
         /// <summary>
@@ -115,27 +118,28 @@ namespace Simulation
             DrawBackground();
 
             // Construct hole map image
-            Int32Rect rect = new Int32Rect(0, 0, slam.HoleMap.Size, slam.HoleMap.Size);
-            holeMapBitmap.WritePixels(rect, slam.HoleMap.Pixels, holeMapBitmap.BackBufferStride, 0);
+            Int32Rect rect = new Int32Rect(0, 0, coreSlam.HoleMap.Size, coreSlam.HoleMap.Size);
+            holeMapBitmap.WritePixels(rect, coreSlam.HoleMap.Pixels, holeMapBitmap.BackBufferStride, 0);
 
             Image holeMapImage = new Image()
             {
                 Source = holeMapBitmap,
-                Width = 40.0,
-                Height = 40.0,
+                Width = coreSlam.PhysicalMapSize,
+                Height = coreSlam.PhysicalMapSize,
             };
 
             DrawArea.Children.Add(holeMapImage);
 
+            // Draw field edges
             DrawField();
 
             // Draw positions
             DrawCircle(lidarPos, 0.2f, Colors.Blue);
-            DrawCircle(slam.Pose.ToVector2(), 0.2f, Colors.Red);
+            DrawCircle(coreSlam.Pose.ToVector2(), 0.2f, Colors.Red);
 
             // Update labels
             RealPosLabel.Text = $"Real position: {lidarPos.X:f2} x {lidarPos.Y:f2}";
-            EstimatedPosLabel.Text = $"Estimated position: {slam.Pose.X:f2} x {slam.Pose.Y:f2}";
+            EstimatedPosLabel.Text = $"Estimated position: {coreSlam.Pose.X:f2} x {coreSlam.Pose.Y:f2}";
         }
 
         /// <summary>
