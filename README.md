@@ -12,24 +12,26 @@ First of all there's always fixed number of iterations to get stable speed.
 Additionally the search is done on multiple threads to get maximum performance on multi-core platform.
 It also uses [Redzen](https://www.nuget.org/packages/Redzen) fast normal distribution random number generator and the trick is to pre-calculate random numbers. So when it's time do localization, the right amount of random numbers are ready to use.
 
-I used it in my [Robotex](https://robotex.international) 2019 robotic competition robot "Ace Ventura" and won the "Starship animal rescure" competition so it kind of works.
-It runs on Raspberry Pi 4 with .NET Core 3.0 pretty well, there's some CPU time left over for other tasks as well.
-To speed it up even further it should be possible to use ARM SIMD instruction set NEON, if .NET Core devs implement ARM intrinsics.
+I used it in my [Robotex](https://robotex.international) 2019 robotic competition robot "Ace Ventura" and won the "Starship animal rescure" competition, so it kind of works.
+My problem with this SLAM algorithm was that even with wheel odometry the map tilted and slided over time.
+However, it may have be just a configuration issue and for that reason i creted a simulation application to try out different parameters (hole width, etc.).
 
-Here's picture of my robots view. The grayscale is the CoreSLAM hole map. The red overlay is objects - they are detected slightly differently, but the code is in the same C# library.
-![Demo map](demo_map.png)
-
-The problem is with this SLAM algorithm that it's heavily dependent on odometry and even with odometry the map tilts and slides over time.
+Here's the picture of the CoreSLAM functioning in simulation:
+![Simulation](simulation_coreslam.png)
+The grayscale map is the hole map. Blue edges are true walls. Blue circle is true position, red is estimated position.
+When you compiler and run simulation use left mouse button to drag the real position and see how the estimator works.
+There is artificial noise added to the "lidar" measurements.
+The lidar ray tracing is done with .NET variant of [Box2D](https://github.com/benukhanov/box2d-netstandard).
 
 ## HectorSLAM
 
 This is the attempt to port [HectorSLAM](https://github.com/tu-darmstadt-ros-pkg/hector_slam) algorithm from C++ to C#.
 HectorSLAM is a ROS package and based on what I've read and seen it looks much more stable than CoreSLAM.
 Since I'm not very fond of C++ boilerplate code (getters and setters) I started porting it and actually it went much smaller in lines of code.
-However this is very-very raw and doesn't work. I've just manage to make something compile, but many things are commented out.
-I wanted to use .NET Core System.Numerics namespace, but it doesn't have 3x3 matrixes and other helper functions which are in Eigen C++ library what the HectorSLAM uses.
+However this is very-very raw and doesn't work. I've just manage to make it compile, but haven't yet tried out.
+I wanted to use .NET Core System.Numerics namespace, but the downside is that Numerics doesn't have 3x3 matrixes and other helper functions which are in Eigen C++ library (what the original HectorSLAM uses).
 
-Anyway, maybe somebody wants to use them.
+So let's say it's work in progress.
 
 ----
 
