@@ -13,14 +13,17 @@ Additionally the search is done on multiple threads to get maximum performance o
 It also uses [Redzen](https://www.nuget.org/packages/Redzen) fast normal distribution random number generator and the trick is to pre-calculate random numbers. So when it's time do localization, the right amount of random numbers are ready to use.
 
 I used it in my [Robotex](https://robotex.international) 2019 robotic competition robot "Ace Ventura" and won the "Starship animal rescure" competition, so it kind of works.
+It ran on Raspberry Pi 4 using .NET Core 3.0 and there was some CPU time left over for other tasks also. But now the code is for .NET 5.0.
 My problem with this SLAM algorithm was that even with wheel odometry the map tilted and slided over time.
-However, it may have be just a configuration issue and for that reason i creted a simulation application to try out different parameters (hole width, etc.).
+However, it may have been just a configuration issue and for that reason I created a simulation application to quickly try out different parameters (hole width, etc.).
 
 Here's the picture of the CoreSLAM functioning in simulation:
 ![Simulation](simulation_coreslam.png)
 The grayscale map is the hole map. Blue edges are true walls. Blue circle is true position, red is estimated position.
 When you compiler and run simulation use left mouse button to drag the real position and see how the estimator works.
 There is artificial noise added to the "lidar" measurements.
+Parameters tuning is in the code, no UI features for that.
+
 The lidar ray tracing is done with .NET variant of [Box2D](https://github.com/benukhanov/box2d-netstandard).
 
 ## HectorSLAM
