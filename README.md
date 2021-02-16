@@ -19,8 +19,10 @@ However, it may have been just a configuration issue and for that reason I creat
 
 Here's the picture of the CoreSLAM functioning in simulation:
 ![Simulation](simulation_coreslam.png)
+
 The grayscale map is the hole map. Blue edges are true walls. Blue circle is true position, red is estimated position.
-When you compiler and run simulation use left mouse button to drag the real position and see how the estimator works.
+When you compile and run simulation, use left mouse button to drag the real position and see how the hole map estimator works.
+If you click further than SigmaXY the estimator may fail to find correct position.
 There is artificial noise added to the "lidar" measurements.
 Parameters tuning is in the code, no UI features for that.
 
