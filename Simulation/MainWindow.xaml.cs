@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -20,6 +21,8 @@ using BaseSLAM;
 using CoreSLAM;
 using HectorSLAM;
 using HectorSLAM.Main;
+using HectorSLAM.Map;
+using HectorSLAM.Scan;
 
 namespace Simulation
 {
@@ -33,6 +36,7 @@ namespace Simulation
         private const float scanPerSecond = 7.0f;  // Scan / second
         private const float maxScanDist = 40.0f;   // Meters
         private const float measureError = 0.02f;  // Meters
+        private const int scanPeriod = (int)(1000.0 / scanPerSecond); // Milliseconds
 
         // Objects
         private readonly Field field = new Field();
@@ -42,9 +46,11 @@ namespace Simulation
         private Vector2 lidarPos;
         private readonly CoreSLAMProcessor coreSlam;
         private readonly HectorSLAMProcessor hectorSlam;
-        private readonly Timer lidarTimer;
+        private readonly Thread lidarThread;
         private readonly WriteableBitmap holeMapBitmap;
+        private readonly WriteableBitmap occupancyMapBitmap;
         private bool doReset;
+        private bool isRunning;
 
         /// <summary>
         /// Constructor
@@ -62,7 +68,12 @@ namespace Simulation
                 HoleWidth = 2.0f,
                 SigmaXY = 1.0f
             };
+
             holeMapBitmap = new WriteableBitmap(coreSlam.HoleMap.Size, coreSlam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
+
+            hectorSlam = new HectorSLAMProcessor(40.0f / 512, 512, 512, new Vector2(0.0f, 0.0f), 2);
+            hectorSlam.LastScanMatchPose = startPos.ToVector3();
+
 
             // Create field
             field.CreateDefaultField(30.0f, new Vector2(5.0f, 5.0f));
@@ -78,7 +89,13 @@ namespace Simulation
             drawTimer.Start();
 
             // Start scan timer in another thread
-            lidarTimer = new Timer((o) => Scan(), null, 100, (int)(1000.0 / scanPerSecond));
+            lidarThread = new Thread(new ThreadStart(Scan))
+            {
+                Name = "Lidar"
+            };
+
+            isRunning = true;
+            lidarThread.Start();
         }
 
         /// <summary>
@@ -88,8 +105,9 @@ namespace Simulation
         /// <param name="e"></param>
         private void Window_Closed(object sender, EventArgs e)
         {
+            isRunning = false;
             drawTimer.Stop();
-            lidarTimer.Dispose();
+            lidarThread.Join();
             coreSlam.Dispose();
         }
 
@@ -98,15 +116,57 @@ namespace Simulation
         /// </summary>
         private void Scan()
         {
-            if (doReset)
-            {
-                coreSlam.Reset();
-                lidarPos = startPos;
-                doReset = false;
-            }
+            Stopwatch sw = new Stopwatch();
+            int loops = 0;
+            
 
-            ScanSegments(lidarPos, coreSlam.Pose, out List<ScanSegment> scanSegments);
-            coreSlam.Update(scanSegments);
+            while (isRunning)
+            {
+                if (doReset)
+                {
+                    coreSlam.Reset();
+                    lidarPos = startPos;
+                    doReset = false;
+                }
+
+                Vector2 lpos = lidarPos;
+
+                sw.Restart();
+
+                ScanSegments(lpos, coreSlam.Pose, out List<ScanSegment> scanSegments);
+                coreSlam.Update(scanSegments);
+
+                Vector3 lhp = lpos.ToVector3();// + new Vector3(0.2f, 0.1f, 0.0f);
+                //Vector3 lhp = hectorSlam.LastScanMatchPose;
+
+                DataContainer dt = new DataContainer
+                {
+                    Origo = new Vector2(0, 0)
+                };
+
+                Vector2 scale = //hectorSlam.MapRep.GetGridMap(0).Properties.Dimensions.ToVector2() * (1.0f / hectorSlam.MapRep.GetGridMap(0).Properties.CellLength);
+                    new Vector2(512 / 40.0f, 512 / 40.0f);
+                //float f = hectorSlam.MapRep.ScaleToMap * ;
+
+                foreach (ScanSegment seg in scanSegments)
+                {
+                    foreach (Ray ray in seg.Rays)
+                    {
+                        dt.Add(new Vector2()
+                        {
+                            X = ray.Radius * MathF.Cos(ray.Angle) * scale.X,
+                            Y = ray.Radius * MathF.Sin(ray.Angle) * scale.Y,
+                        });
+                    }
+                }
+
+                hectorSlam.Update(dt, lhp);
+
+                // Ensure periodicity
+                Thread.Sleep((int)Math.Max(0, (long)scanPeriod - sw.ElapsedMilliseconds));
+
+                loops++;
+            }
         }
 
         /// <summary>
@@ -128,7 +188,52 @@ namespace Simulation
                 Height = coreSlam.PhysicalMapSize,
             };
 
-            DrawArea.Children.Add(holeMapImage);
+            //DrawArea.Children.Add(holeMapImage);
+
+            // Construct occupanci map image
+            var map = hectorSlam.MapRep.GetGridMap(0);
+
+            
+            
+            var occupancyMapBitmap = new WriteableBitmap(map.Dimensions.X, map.Dimensions.Y, 96, 96, PixelFormats.Gray8, null);
+
+            for (int y = 0; y < map.Dimensions.Y; y++)
+            {
+                for (int x = 0; x < map.Dimensions.X; x++)
+                {
+                    Int32Rect pr = new Int32Rect(x, y, 1, 1);
+                    byte[] data = new byte[1];
+                    ICell cell = map.GetCell(x, y);
+                    //data[0] = (byte)(127.0f + cell.Value);
+                    
+                    if (cell.IsFree)
+                    {
+                        data[0] = 255;
+                    }
+                    else if (cell.IsOccupied)
+                    {
+                        data[0] = 0;
+                    }
+                    else
+                    {
+                        data[0] = 127;
+                    }
+                    
+                    //data[0] = (byte)(cell.UpdateIndex % 256);
+
+                    occupancyMapBitmap.WritePixels(pr, data, occupancyMapBitmap.PixelWidth, 0);
+                    
+                }
+            }
+
+            Image occMapImage = new Image()
+            {
+                Source = occupancyMapBitmap,
+                Width = map.Properties.PhysicalSize.X,
+                Height = map.Properties.PhysicalSize.Y
+            };
+
+            DrawArea.Children.Add(occMapImage);
 
             // Draw field edges
             DrawField();
@@ -136,6 +241,8 @@ namespace Simulation
             // Draw positions
             DrawCircle(lidarPos, 0.2f, Colors.Blue);
             DrawCircle(coreSlam.Pose.ToVector2(), 0.2f, Colors.Red);
+            DrawCircle(hectorSlam.LastMapUpdatePose.ToVector2(), 0.2f, Colors.Yellow);
+            DrawCircle(hectorSlam.LastScanMatchPose.ToVector2(), 0.2f, Colors.Green);
 
             // Update labels
             RealPosLabel.Text = $"Real position: {lidarPos.X:f2} x {lidarPos.Y:f2}";
@@ -174,6 +281,8 @@ namespace Simulation
                     Stroke = Brushes.Blue,
                     StrokeThickness = 0.1f
                 };
+
+                line.Opacity = 0.5f;
 
                 DrawArea.Children.Add(line);
             }
@@ -247,7 +356,7 @@ namespace Simulation
             {
                 if (field.RayTrace(realPos, angle, maxScanDist, out float hit))
                 {
-                    hit += ((float)rnd.Next(-100, 100) / 100.0f) * measureError;
+                    //hit += ((float)rnd.Next(-100, 100) / 100.0f) * measureError;
 
                     scanSegment.Rays.Add(new Ray(angle, hit));
                 }

@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Drawing;
 using BaseSLAM;
 using HectorSLAM.Util;
+using System.Runtime.CompilerServices;
 
 namespace HectorSLAM.Map
 {
@@ -21,9 +22,25 @@ namespace HectorSLAM.Map
         protected Matrix4x4 worldTmap;     ///< Homogenous transform from map to world coordinates.
         protected Matrix4x4 mapTworld;     ///< Homogenous transform from world to map coordinates.
 
-        public MapDimensionProperties DimensionProperties { get; }
-        public Point Dimensions => DimensionProperties.Dimensions;
-        private int sizeX => Dimensions.X;
+        /// <summary>
+        /// Map properties
+        /// </summary>
+        public MapProperties Properties { get; } = new MapProperties();
+
+        public Point Dimensions => Properties.Dimensions;
+
+        /// <summary>
+        /// Constructor, creates grid representation and transformations.
+        /// </summary>
+        /// <param name="mapResolution">Map resolution in meters per pixel</param>
+        /// <param name="size">Map size in pixels</param>
+        /// <param name="offset">Offset if meters</param>
+        public GridMapBase(float mapResolution, Point size, Vector2 offset)
+        {
+            SetMapGridSize(size);
+            SetMapTransformation(offset, mapResolution);
+            Clear();
+        }
 
         /**
         * Indicates if given x and y are within map bounds
@@ -40,9 +57,9 @@ namespace HectorSLAM.Map
             Clear();
         }
 
-        /**
-         * Resets the grid cell values by using the resetGridCell() function.
-         */
+        /// <summary>
+        /// Resets the grid cell values by using the resetGridCell() function.
+        /// </summary>
         public void Clear()
         {
             int size = Dimensions.X * Dimensions.Y;
@@ -57,22 +74,21 @@ namespace HectorSLAM.Map
         }
 
         /**
-        * Constructor, creates grid representation and transformations.
-        */
-        public GridMapBase(float mapResolution, Point size, Vector2 offset)
-        {
-            SetMapGridSize(size);
-            SetMapTransformation(offset, mapResolution);
-            Clear();
-        }
-
-        /**
          * Allocates memory for the two dimensional pointer array for map representation.
          */
         public void AllocateArray(Point newMapDims)
         {
             mapArray = new T[newMapDims.X * newMapDims.Y];
-            DimensionProperties.Dimensions = newMapDims;
+            Properties.Dimensions = newMapDims;
+
+
+            int length = Dimensions.X * Dimensions.Y;
+
+            for (int i = 0; i < length; ++i)
+            {
+                mapArray[i] = (T)Activator.CreateInstance(typeof(T));
+            }
+
         }
 
         public void DeleteArray()
@@ -80,14 +96,28 @@ namespace HectorSLAM.Map
             if (mapArray != null)
             {
                 mapArray = null;
-                DimensionProperties.Dimensions = new Point(-1, -1);
+                Properties.Dimensions = new Point(-1, -1);
             }
         }
 
+        /// <summary>
+        /// Get cell by coordinates
+        /// </summary>
+        /// <param name="x">X</param>
+        /// <param name="y">Y</param>
+        /// <returns>Cell</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T GetCell(int x, int y)
         {
-            return mapArray[y * sizeX + x];
+            return mapArray[y * Dimensions.X + x];
         }
+
+        /// <summary>
+        /// Get cell by index
+        /// </summary>
+        /// <param name="index">Arry index</param>
+        /// <returns>Cell</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T GetCell(int index)
         {
             return mapArray[index];
@@ -103,9 +133,10 @@ namespace HectorSLAM.Map
             }
         }
 
-        /**
-         * Copy Constructor, only needed if pointer members are present.
-         */
+        /// <summary>
+        /// Copy Constructor, only needed if pointer members are present.
+        /// </summary>
+        /// <param name="other"></param>
         public GridMapBase(GridMapBase<T> other)
         {
             // TODO:
@@ -143,6 +174,7 @@ namespace HectorSLAM.Map
             return *this;
         }
         */
+
         /**
          * Returns the world coordinates for the given map coords.
          */
@@ -177,21 +209,16 @@ namespace HectorSLAM.Map
             return new Vector3(mapCoords.X, mapCoords.Y, worldPose.Z);
         }
 
-        private void SetDimensionProperties(Vector2 topLeftOffset, Point mapDimensions, float cellLengthIn)
-        {
-            SetDimensionProperties(new MapDimensionProperties(topLeftOffset, mapDimensions, cellLengthIn));
-        }
-
-        private void SetDimensionProperties(MapDimensionProperties newMapDimProps)
+        private void SetDimensionProperties(MapProperties newMapDimProps)
         {
             //Grid map cell number has changed
-            if (!newMapDimProps.HasEqualDimensionProperties(DimensionProperties))
+            if (!newMapDimProps.HasEqualDimensionProperties(Properties))
             {
                 SetMapGridSize(newMapDimProps.Dimensions);
             }
 
             //Grid map transformation/cell size has changed
-            if (!newMapDimProps.HasEqualTransformationProperties(DimensionProperties))
+            if (!newMapDimProps.HasEqualTransformationProperties(Properties))
             {
                 SetMapTransformation(newMapDimProps.TopLeftOffset, newMapDimProps.CellLength);
             }
@@ -200,12 +227,12 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Set the map transformations
         /// </summary>
-        /// <param name="topLeftOffset">The origin of the map coordinate system in world coordinates</param>
+        /// <param name="topLeftOffset">The origin of the map coordinate system in world coordinates (meters)</param>
         /// <param name="cellLength">The cell length of the grid map</param>
         private void SetMapTransformation(Vector2 topLeftOffset, float cellLength)
         {
-            DimensionProperties.CellLength = cellLength;
-            DimensionProperties.TopLeftOffset = topLeftOffset;
+            Properties.CellLength = cellLength;
+            Properties.TopLeftOffset = topLeftOffset;
 
             ScaleToMap = 1.0f / cellLength;
 

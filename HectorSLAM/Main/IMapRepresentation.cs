@@ -11,7 +11,7 @@ namespace HectorSLAM.Main
     public interface IMapRepresentation
     {
         float ScaleToMap { get; }
-        int MapLevels { get; }
+        int NumLevels { get; }
         void Reset();
         GridMap GetGridMap(int mapLevel = 0);
         void AddMapMutex(int i, IMapLocker mapMutex);

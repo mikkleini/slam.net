@@ -30,6 +30,7 @@ namespace HectorSLAM.Map
         /// </summary>
         public GridMapCacheArray()
         {
+            // TODO Put array size changing into contructor
         }
 
         /// <summary>

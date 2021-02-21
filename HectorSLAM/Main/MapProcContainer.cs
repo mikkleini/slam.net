@@ -18,7 +18,7 @@ namespace HectorSLAM.Main
 
         public MapProcContainer(GridMap gridMap, OccGridMapUtilConfig gridMapUtil, ScanMatcher scanMatcher)
         {
-            GridMap = GridMap;
+            GridMap = gridMap;
             GridMapUtil = gridMapUtil;
             ScanMatcher = scanMatcher;
             MapMutex = null;

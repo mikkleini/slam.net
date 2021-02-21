@@ -141,6 +141,17 @@ namespace BaseSLAM
         }
 
         /// <summary>
+        /// Vector2 to Vector3 (Z will be zero)
+        /// </summary>
+        /// <param name="vector">Vector2</param>
+        /// <returns>Vector3</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 ToVector3(this Vector2 vector)
+        {
+            return new Vector3(vector.X, vector.Y, 0.0f);
+        }
+
+        /// <summary>
         /// Vector2 to Point with flooring
         /// </summary>
         /// <param name="vector">Vector3</param>

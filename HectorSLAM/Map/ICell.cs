@@ -6,6 +6,7 @@ namespace HectorSLAM.Map
 {
     public interface ICell
     {
+        int UpdateIndex { get; set; }
         float Value { get; set; }
         bool IsOccupied { get; }
         bool IsFree { get; }

@@ -96,5 +96,16 @@ namespace BaseSLAM
             float d = ((a - b) + MathF.PI) / (2 * MathF.PI);
             return ((d - MathF.Floor(d)) * (2 * MathF.PI)) - MathF.PI;
         }
+
+        /// <summary>
+        /// Value in square
+        /// </summary>
+        /// <param name="val"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Sqr(this float val)
+        {
+            return val * val;
+        }
     }
 }

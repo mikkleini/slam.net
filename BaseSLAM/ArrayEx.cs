@@ -25,5 +25,19 @@ namespace BaseSLAM
                 }
             }
         }
+
+        /// <summary>
+        /// Foreach Linq querty
+        /// </summary>
+        /// <typeparam name="T">Type of item</typeparam>
+        /// <param name="source">Source enumerable</param>
+        /// <param name="action">Action</param>
+        public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
+        {
+            foreach (T item in source)
+            {
+                action(item);
+            }
+        }
     }
 }

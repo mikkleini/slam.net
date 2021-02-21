@@ -8,9 +8,9 @@ namespace HectorSLAM.Scan
     public class DataContainer : List<Vector2>
     {
         /// <summary>
-        /// TODO What is it ?
+        /// Lidar rays origin point in meters (zero vector if lidar is in the center of the robot)
         /// </summary>
-        public Vector2 Origo { get; private set; }
+        public Vector2 Origo { get; set; }
 
         /// <summary>
         /// Set from other list

@@ -36,7 +36,7 @@ namespace HectorSLAM.Map
         /// Update cell as occupied
         /// </summary>
         /// <param name="cell">The cell</param>
-        public void UpdateSetOccupied(LogOddsCell cell)
+        public void UpdateSetOccupied(ICell cell)
         {
             if (cell.Value < 50.0f)
             {
@@ -48,7 +48,7 @@ namespace HectorSLAM.Map
         /// Update cell as free
         /// </summary>
         /// <param name="cell">The cell</param>
-        public void UpdateSetFree(LogOddsCell cell)
+        public void UpdateSetFree(ICell cell)
         {
             cell.Value += logOddsFree;
         }
@@ -57,7 +57,7 @@ namespace HectorSLAM.Map
         /// Update cell as not free
         /// </summary>
         /// <param name="cell">The cell</param>
-        public void UpdateUnsetFree(LogOddsCell cell)
+        public void UpdateUnsetFree(ICell cell)
         {
             cell.Value -= logOddsFree;
         }
@@ -67,7 +67,7 @@ namespace HectorSLAM.Map
         * @param cell The cell.
         * @return The probability
         */
-        public float GetGridProbability(LogOddsCell cell)
+        public float GetGridProbability(ICell cell)
         {
             float odds = MathF.Exp(cell.Value);
             return odds / (odds + 1.0f);

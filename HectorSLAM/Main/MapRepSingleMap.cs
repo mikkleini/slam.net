@@ -31,7 +31,7 @@ namespace HectorSLAM.Main
 
         public float ScaleToMap => gridMap.ScaleToMap;
 
-        public int MapLevels => 1;
+        public int NumLevels => 1;
 
         public GridMap GetGridMap(int mapLevel)
         {

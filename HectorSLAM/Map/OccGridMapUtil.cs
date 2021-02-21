@@ -14,7 +14,7 @@ namespace HectorSLAM.Map
     {
         private readonly GridMapCacheArray cacheMethod;
         private readonly GridMap gridMap;
-        private readonly List<Vector3> samplePoints;
+        private readonly List<Vector3> samplePoints; // TODO Unused, remove it
         private readonly float[] intensities = new float[4] { 0, 0, 0, 0 };
         private readonly float mapObstacleThreshold;
 
@@ -54,7 +54,11 @@ namespace HectorSLAM.Map
             float sinRot = MathF.Sin(pose.Z);
             float cosRot = MathF.Cos(pose.Z);
 
-            H = new Matrix4x4();
+            H = new Matrix4x4
+            {
+                M44 = 1.0f // Needed to make matrix inversible
+            };
+
             dTr = Vector3.Zero;
 
             foreach (Vector2 currPoint in dataPoints)
@@ -71,9 +75,9 @@ namespace HectorSLAM.Map
 
                 dTr.Z += rotDeriv * funVal;
 
-                H.M11 += Util.Util.Sqr(transformedPointData.Y);
-                H.M22 += Util.Util.Sqr(transformedPointData.Z);
-                H.M33 += Util.Util.Sqr(rotDeriv);
+                H.M11 += transformedPointData.Y.Sqr();
+                H.M22 += transformedPointData.Z.Sqr();
+                H.M33 += rotDeriv.Sqr();
 
                 H.M12 += transformedPointData.Y * transformedPointData.Z;
                 H.M13 += transformedPointData.Y * rotDeriv;
@@ -117,7 +121,7 @@ namespace HectorSLAM.Map
                 GetLikelihoodForState(new Vector3(x, y, ang), dataPoints)
             };
 
-            float invLhNormalizer = 1 / likelihoods.Sum();
+            float invLhNormalizer = 1.0f / likelihoods.Sum();
 
             System.Diagnostics.Debug.WriteLine($"lhs: {likelihoods}");
 
@@ -135,7 +139,12 @@ namespace HectorSLAM.Map
             for (int i = 0; i < 7; ++i)
             {
                 Vector3 sigPointMinusMean = sigmaPoints[i] - mean;
-                Matrix4x4 sp = new Matrix4x4(sigPointMinusMean.X, sigPointMinusMean.Y, sigPointMinusMean.Z, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                Matrix4x4 sp = new Matrix4x4(
+                    sigPointMinusMean.X, sigPointMinusMean.Y, sigPointMinusMean.Z, 0,
+                    0, 0, 0, 0,
+                    0, 0, 0, 0,
+                    0, 0, 0, 0);
+
                 Matrix4x4 spt = Matrix4x4.Transpose(sp);
                 covMatrixMap += Matrix4x4.Multiply(Matrix4x4.Multiply(sp, spt), likelihoods[i] * invLhNormalizer);
 
@@ -151,10 +160,13 @@ namespace HectorSLAM.Map
         {
             //std::cout << "\nCovMap:\n" << covMatMap;
 
-            Matrix4x4 covMatWorld = new Matrix4x4();
+            Matrix4x4 covMatWorld = new Matrix4x4()
+            {
+                //M44 = 1.0f // Needed to make matrix inversible
+            };
 
-            float scaleTrans = gridMap.DimensionProperties.CellLength;
-            float scaleTransSq = Util.Util.Sqr(scaleTrans);
+            float scaleTrans = gridMap.Properties.CellLength;
+            float scaleTransSq = scaleTrans.Sqr();
 
             covMatWorld.M11 = covMatMap.M11 * scaleTransSq;
             covMatWorld.M22 = covMatMap.M22 * scaleTransSq;
@@ -214,7 +226,7 @@ namespace HectorSLAM.Map
         public float InterpMapValue(Vector2 coords)
         {
             // Check if coords are within map limits.
-            if (gridMap.DimensionProperties.IsPointOutOfMapBounds(coords))
+            if (gridMap.Properties.IsPointOutOfMapBounds(coords))
             {
                 return 0.0f;
             }
@@ -260,18 +272,18 @@ namespace HectorSLAM.Map
                 cacheMethod.CacheData(index, intensities[3]);
             }
 
-            float xFacInv = (1.0f - factors.X);
-            float yFacInv = (1.0f - factors.Y);
+            float xFacInv = 1.0f - factors.X;
+            float yFacInv = 1.0f - factors.Y;
 
             return
-                  ((intensities[0] * xFacInv + intensities[1] * factors.X) * (yFacInv)) +
-                  ((intensities[1] * xFacInv + intensities[3] * factors.X) * (factors.Y));
+                  ((intensities[0] * xFacInv + intensities[1] * factors.X) * yFacInv) +
+                  ((intensities[2] * xFacInv + intensities[3] * factors.X) * factors.Y);
         }
 
         public Vector3 InterpMapValueWithDerivatives(Vector2 coords)
         {
             // Check if coords are within map limits.
-            if (gridMap.DimensionProperties.IsPointOutOfMapBounds(coords))
+            if (gridMap.Properties.IsPointOutOfMapBounds(coords))
             {
                 return Vector3.Zero;
             }
@@ -323,12 +335,12 @@ namespace HectorSLAM.Map
             float dy1 = intensities[0] - intensities[2];
             float dy2 = intensities[1] - intensities[3];
 
-            float xFacInv = (1.0f - factors.X);
-            float yFacInv = (1.0f - factors.Y);
+            float xFacInv = 1.0f - factors.X;
+            float yFacInv = 1.0f - factors.Y;
 
             return new Vector3(
-                ((intensities[0] * xFacInv + intensities[1] * factors.X) * (yFacInv)) +
-                ((intensities[2] * xFacInv + intensities[3] * factors.X) * (factors.Y)),
+                ((intensities[0] * xFacInv + intensities[1] * factors.X) * yFacInv) +
+                ((intensities[2] * xFacInv + intensities[3] * factors.X) * factors.Y),
                 -((dx1 * xFacInv) + (dx2 * factors.X)),
                 -((dy1 * yFacInv) + (dy2 * factors.Y)));
         }

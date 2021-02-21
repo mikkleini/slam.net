@@ -9,7 +9,7 @@ using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
 {
-    public class OccGridMapBase<T> : GridMapBase<T> where T : LogOddsCell
+    public class OccGridMapBase<T> : GridMapBase<T> where T : ICell
     {
         protected GridMapLogOddsFunctions gridFunctions;
         protected int currUpdateIndex = 0;
@@ -19,9 +19,9 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="mapResolution">Map resolution</param>
-        /// <param name="size">Map size</param>
-        /// <param name="offset">Offset</param>
+        /// <param name="mapResolution">Map resolution in meters per pixel</param>
+        /// <param name="size">Map size in pixels</param>
+        /// <param name="offset">Offset if meters</param>
         public OccGridMapBase(float mapResolution, Point size, Vector2 offset)
             : base(mapResolution, size, offset)
         {
@@ -102,7 +102,7 @@ namespace HectorSLAM.Map
             Matrix4x4 poseTransform = Matrix4x4.CreateTranslation(mapPose.X, mapPose.Y, 0) * Matrix4x4.CreateRotationZ(mapPose.Z);
             //Eigen::Affine2f poseTransform((Eigen::Translation2f(mapPose[0], mapPose[1]) * Eigen::Rotation2Df(mapPose[2])));
 
-            // Get start point of all laser beams in map coordinates (same for alle beams, stored in robot coords in dataContainer)
+            // Get start point of all laser beams in map coordinates (same for all beams, stored in robot coords in dataContainer)
             Vector2 scanBeginMapf = Vector2.Transform(dataContainer.Origo, poseTransform);
 
             // Get integer vector of laser beams start point
@@ -179,7 +179,7 @@ namespace HectorSLAM.Map
 
         private void BresenhamCellFree(int offset)
         {
-            LogOddsCell cell = GetCell(offset);
+            ICell cell = GetCell(offset);
 
             if (cell.UpdateIndex < currMarkFreeIndex)
             {

@@ -17,20 +17,12 @@ namespace HectorSLAM.Main
 
         public MapRepMultiMap MapRep { get; protected set; }
         public Vector3 LastMapUpdatePose { get; protected set; }
-        public Vector3 LastScanMatchPose { get; protected set; }
+        public Vector3 LastScanMatchPose { get; set; }
         public Matrix4x4 LastScanMatchCov { get; protected set; }
         public float MinDistanceDiffForMapUpdate { get; set; }
         public float MinAngleDiffForMapUpdate { get; set; }
 
-        /*
-        DrawInterface* drawInterface;
-        HectorDebugInfoInterface* debugInterface;
-        */
-
-        public float ScaleToMap => MapRep.ScaleToMap;
-        public int MapLevels => MapRep.MapLevels;
-
-
+  
         public GridMap GetGridMap(int mapLevel = 0)
         {
             return MapRep.GetGridMap(mapLevel);
@@ -59,10 +51,10 @@ namespace HectorSLAM.Main
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="mapResolution"></param>
-        /// <param name="mapSizeX"></param>
-        /// <param name="mapSizeY"></param>
-        /// <param name="startCoords"></param>
+        /// <param name="mapResolution">Meters per pixel</param>
+        /// <param name="mapSizeX">Size X in pixels</param>
+        /// <param name="mapSizeY">Size Y in pixels</param>
+        /// <param name="startCoords">Start coordinates as fraction of whole map size</param>
         /// <param name="multiResSize"></param>
         /// <param name="drawInterface"></param>
         /// <param name="debugInterface"></param>
@@ -75,7 +67,7 @@ namespace HectorSLAM.Main
 
             Reset();
 
-            MinDistanceDiffForMapUpdate = 0.4f * 1.0f;
+            MinDistanceDiffForMapUpdate = 0.2f * 1.0f;
             MinAngleDiffForMapUpdate = 0.13f * 1.0f;
         }
 

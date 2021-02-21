@@ -27,11 +27,6 @@ namespace HectorSLAM.Util
             return a;
         }
 
-        public static float Sqr(float val)
-        {
-            return val * val;
-        }
-
         public static bool PoseDifferenceLargerThan(Vector3 pose1, Vector3 pose2, float distanceDiffThresh, float angleDiffThresh)
         {
             // Check distance
