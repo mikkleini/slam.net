@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using BaseSLAM;
 using HectorSLAM.Scan;
@@ -11,10 +12,11 @@ namespace HectorSLAM.Map
 {
     public class OccGridMapBase<T> : GridMapBase<T> where T : ICell
     {
-        protected GridMapLogOddsFunctions gridFunctions;
         protected int currUpdateIndex = 0;
         protected int currMarkOccIndex = -1;
         protected int currMarkFreeIndex = -1;
+        private float logOddsOccupied; // The log odds representation of probability used for updating cells as occupied
+        private float logOddsFree;     // The log odds representation of probability used for updating cells as free
 
         /// <summary>
         /// Constructor
@@ -25,37 +27,52 @@ namespace HectorSLAM.Map
         public OccGridMapBase(float mapResolution, Point size, Vector2 offset)
             : base(mapResolution, size, offset)
         {
-            gridFunctions = new GridMapLogOddsFunctions();
+            SetUpdateFreeFactor(0.4f);
+            SetUpdateOccupiedFactor(0.6f);
         }
-
-        public void UpdateSetOccupied(int index)
-        {
-            gridFunctions.UpdateSetOccupied(GetCell(index));
-        }
-
-        public void UpdateSetFree(int index)
-        {
-            gridFunctions.UpdateSetFree(GetCell(index));
-        }
-
-        public void UpdateUnsetFree(int index)
-        {
-            gridFunctions.UpdateUnsetFree(GetCell(index));
-        }
-
-        public float GetGridProbabilityMap(int index)
-        {
-            return gridFunctions.GetGridProbability(GetCell(index));
-        }
-
+        
         public void SetUpdateFreeFactor(float factor)
         {
-            gridFunctions.SetUpdateFreeFactor(factor);
+            logOddsFree = ProbToLogOdds(factor);
         }
 
         public void SetUpdateOccupiedFactor(float factor)
         {
-            gridFunctions.SetUpdateOccupiedFactor(factor);
+            logOddsOccupied = ProbToLogOdds(factor);
+        }
+
+        private static float ProbToLogOdds(float prob)
+        {
+            float odds = prob / (1.0f - prob);
+            return MathF.Log(odds);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void UpdateSetOccupied(int index)
+        {
+            if (mapArray[index].Value < 50.0f)
+            {
+                mapArray[index].Value += logOddsOccupied;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void UpdateSetFree(int index)
+        {
+            mapArray[index].Value += logOddsFree;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void UpdateUnsetFree(int index)
+        {
+            mapArray[index].Value -= logOddsFree;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public float GetGridProbabilityMap(int index)
+        {
+            float odds = MathF.Exp(mapArray[index].Value);
+            return odds / (odds + 1.0f);
         }
 
         public bool IsOccupied(int xMap, int yMap)
@@ -80,70 +97,59 @@ namespace HectorSLAM.Map
 
         public float GetObstacleThreshold()
         {
-            LogOddsCell temp = new LogOddsCell();
-            temp.Reset();
-            return gridFunctions.GetGridProbability(temp);
+            return 0.0f;
         }
 
-        /**
-         * Updates the map using the given scan data and robot pose
-         * @param dataContainer Contains the laser scan data
-         * @param robotPoseWorld The 2D robot pose in world coordinates
-         */
+        /// <summary>
+        /// Updates the map using the given scan data and robot pose
+        /// </summary>
+        /// <param name="dataContainer">Scan points</param>
+        /// <param name="robotPoseWorld">Robot world pose (X and Y in meters, Z in radians)</param>
         public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
         {
             currMarkFreeIndex = currUpdateIndex + 1;
             currMarkOccIndex = currUpdateIndex + 2;
 
-            // Get pose in map coordinates from pose in world coordinates
-            Vector3 mapPose = GetMapCoordsPose(robotPoseWorld);
-
             // Get a 2D homogenous transform that can be left-multiplied to a robot coordinates vector to get world coordinates of that vector
-            Matrix4x4 poseTransform = Matrix4x4.CreateTranslation(mapPose.X, mapPose.Y, 0) * Matrix4x4.CreateRotationZ(mapPose.Z);
-            //Eigen::Affine2f poseTransform((Eigen::Translation2f(mapPose[0], mapPose[1]) * Eigen::Rotation2Df(mapPose[2])));
+            /*Matrix3x2 poseTransform =
+                Matrix3x2.CreateRotation(robotPoseWorld.Z) *                       // Rotate
+                Matrix3x2.CreateTranslation(robotPoseWorld.X, robotPoseWorld.Y) *  // Translate position
+                Matrix3x2.CreateScale(Properties.ScaleToMap);                      // Meters to pixels*/
 
-            // Get start point of all laser beams in map coordinates (same for all beams, stored in robot coords in dataContainer)
-            Vector2 scanBeginMapf = Vector2.Transform(dataContainer.Origo, poseTransform);
+            Matrix3x2 poseTransform =
+                Matrix3x2.CreateTranslation(robotPoseWorld.X, robotPoseWorld.Y) *  // Translate position
+                Matrix3x2.CreateRotation(robotPoseWorld.Z) *                       // Rotate                
+                Matrix3x2.CreateScale(Properties.ScaleToMap);                      // Meters to pixels
 
-            // Get integer vector of laser beams start point
+            // Get start point of all laser beams
+            Vector2 scanBeginMapf = Vector2.Transform(dataContainer.Origin, poseTransform);
             Point scanBeginMapi = scanBeginMapf.ToRoundPoint();
-
-            //std::cout << "\n maxD: " << maxDist << " num: " << numValidElems << "\n";
 
             //Iterate over all valid laser beams
             for (int i = 0; i < dataContainer.Count; ++i)
             {
-                //Get map coordinates of current beam endpoint
+                // Get map coordinates of the beam endpoint
                 Vector2 scanEndMapf = Vector2.Transform(dataContainer[i], poseTransform);
-                //std::cout << "\ns\n" << scanEndMapf << "\n";
-
-                //Get integer map coordinates of current beam endpoint
                 Point scanEndMapi = scanEndMapf.ToRoundPoint();
 
-                //Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates
+                // Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates
                 if (scanBeginMapi != scanEndMapi)
                 {
                     UpdateLineBresenhami(scanBeginMapi, scanEndMapi);
                 }
             }
 
-            //Tell the map that it has been updated
+            // Tell the map that it has been updated
             SetUpdated();
 
-            //Increase update index (used for updating grid cells only once per incoming scan)
+            // Increase update index (used for updating grid cells only once per incoming scan)
             currUpdateIndex += 3;
         }
 
-        private void UpdateLineBresenhami(Point beginMap, Point endMap, uint max_length = uint.MaxValue)
+        private void UpdateLineBresenhami(Point beginMap, Point endMap)
         {
-            // Check if beam start point is inside map, cancel update if this is not the case
-            if (!HasGridValue(beginMap.X, beginMap.Y))
-            {
-                return;
-            }
-
-            // Check if beam end point is inside map, cancel update if this is not the case
-            if (!HasGridValue(endMap.X, endMap.Y))
+            // Check if beam start and end point is inside map
+            if (!Properties.IsPointInDimensions(beginMap) || !Properties.IsPointInDimensions(endMap))
             {
                 return;
             }
@@ -177,33 +183,31 @@ namespace HectorSLAM.Map
             BresenhamCellOcc(endOffset);
         }
 
-        private void BresenhamCellFree(int offset)
+        private void BresenhamCellFree(int index)
         {
-            ICell cell = GetCell(offset);
-
-            if (cell.UpdateIndex < currMarkFreeIndex)
+            if (mapArray[index].UpdateIndex < currMarkFreeIndex)
             {
-                gridFunctions.UpdateSetFree(cell);
-                cell.UpdateIndex = currMarkFreeIndex;
+                mapArray[index].Value += logOddsFree;
+                mapArray[index].UpdateIndex = currMarkFreeIndex;
             }
         }
 
-        private void BresenhamCellOcc(int offset)
+        private void BresenhamCellOcc(int index)
         {
-            T cell = GetCell(offset);
-
-            if (cell.UpdateIndex < currMarkOccIndex)
+            if (mapArray[index].UpdateIndex < currMarkOccIndex)
             {
-
-                //if this cell has been updated as free in the current iteration, revert this
-                if (cell.UpdateIndex == currMarkFreeIndex)
+                // if this cell has been updated as free in the current iteration, revert this
+                if (mapArray[index].UpdateIndex == currMarkFreeIndex)
                 {
-                    gridFunctions.UpdateUnsetFree(cell);
+                    mapArray[index].Value -= logOddsFree;
                 }
 
-                gridFunctions.UpdateSetOccupied(cell);
-                //std::cout << " setOcc " << "\n";
-                cell.UpdateIndex = currMarkOccIndex;
+                if (mapArray[index].Value < 50.0f)
+                {
+                    mapArray[index].Value += logOddsOccupied;
+                }
+
+                mapArray[index].UpdateIndex = currMarkOccIndex;
             }
         }
 

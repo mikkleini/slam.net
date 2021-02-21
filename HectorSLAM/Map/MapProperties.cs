@@ -12,50 +12,47 @@ namespace HectorSLAM.Map
     public record MapProperties
     {
         /// <summary>
-        /// Top-left offset of map in meters
-        /// </summary>
-        public Vector2 TopLeftOffset { get; internal set; } = new Vector2(-1.0f, -1.0f);
-
-        /// <summary>
-        /// Map dimension in pixels
-        /// </summary>
-        public Point Dimensions { get; internal set; } = new Point(-1, -1);
-
-        /// <summary>
         /// Cell length in meters per pixel
         /// </summary>
-        public float CellLength { get; internal set; } = -1.0f;
+        public float CellLength { get; init; }
+
+        /// <summary>
+        /// Map dimensions in pixels
+        /// </summary>
+        public Point Dimensions { get; init; }
+
+        /// <summary>
+        /// Top-left offset of map in meters
+        /// </summary>
+        public Vector2 Offset { get; init; }
+
+        /// <summary>
+        /// Scale of the map in pixels per meter (inverse of CellLength)
+        /// </summary>
+        public float ScaleToMap => 1.0f / CellLength;
 
         /// <summary>
         /// Map limits in meters
         /// </summary>
-        public Vector2 Limits => new Vector2(Dimensions.X - 2.0f, Dimensions.Y - 2.0f);
+        public Vector2 Limits => new Vector2(Dimensions.X - 2.0f, Dimensions.Y - 2.0f); // TODO Where does the -2 come from ?
 
         /// <summary>
         /// Physical size of the map in meters
         /// </summary>
-        public Vector2 PhysicalSize => new Vector2(Dimensions.X * CellLength, Dimensions.Y * CellLength);
+        public Vector2 PhysicalSize { get; }
 
         /// <summary>
         /// Constructor
         /// </summary>
-        public MapProperties()
+        /// <param name="cellLength">Cell length in meters per pixel</param>
+        /// <param name="dimensions">Map dimensions in pixels</param>
+        /// <param name="offset">Top-left offset of map in meters</param>
+        public MapProperties(float cellLength, Point dimensions, Vector2 offset)
         {
-        }
-
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="topLeftOffset">Top-left offset</param>
-        /// <param name="dimensions">Map dimensions</param>
-        /// <param name="cellLength">Cell length</param>
-        public MapProperties(Vector2 topLeftOffset, Point dimensions, float cellLength)
-        {
-            TopLeftOffset = topLeftOffset;
-            Dimensions = dimensions;
             CellLength = cellLength;
-
-            // Should set limits also?
+            Dimensions = dimensions;
+            Offset = offset;
+            PhysicalSize = new Vector2(Dimensions.X * CellLength, Dimensions.Y * CellLength);
         }
 
         /// <summary>
@@ -75,7 +72,7 @@ namespace HectorSLAM.Map
         /// <returns>true if equal properties</returns>
         public bool HasEqualTransformationProperties(MapProperties other)
         {
-            return (TopLeftOffset == other.TopLeftOffset) && (CellLength == other.CellLength);
+            return (Offset == other.Offset) && (CellLength == other.CellLength);
         }
 
         /// <summary>
@@ -87,6 +84,16 @@ namespace HectorSLAM.Map
         {
             return float.IsNaN(coords.X) || float.IsNaN(coords.Y) ||
                     (coords.X < 0.0f) || (coords.X > Limits.X) || (coords.Y < 0.0f) || (coords.Y > Limits.Y);
+        }
+
+        /// <summary>
+        /// Is point within dimensions
+        /// </summary>
+        /// <param name="p">Point</param>
+        /// <returns>true if point is within dimensions, false if not</returns>
+        public bool IsPointInDimensions(Point p)
+        {
+            return (p.X >= 0) && (p.Y >= 0) && (p.X < Dimensions.X) && (p.Y < Dimensions.Y);
         }
     }
 }

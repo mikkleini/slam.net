@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BaseSLAM;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
@@ -30,7 +31,7 @@ namespace HectorSLAM.Util
         public static bool PoseDifferenceLargerThan(Vector3 pose1, Vector3 pose2, float distanceDiffThresh, float angleDiffThresh)
         {
             // Check distance
-            if (Vector2.Distance(new Vector2(pose1.X, pose1.Y), new Vector2(pose2.X, pose2.Y)) > distanceDiffThresh)
+            if (Vector2.Distance(pose1.ToVector2(), pose2.ToVector2()) > distanceDiffThresh)
             {
                 return true;
             }

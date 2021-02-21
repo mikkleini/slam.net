@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using BaseSLAM;
 using HectorSLAM.Scan;
@@ -16,7 +17,6 @@ namespace HectorSLAM.Map
         private readonly GridMap gridMap;
         private readonly List<Vector3> samplePoints; // TODO Unused, remove it
         private readonly float[] intensities = new float[4] { 0, 0, 0, 0 };
-        private readonly float mapObstacleThreshold;
 
         /// <summary>
         /// Constructor
@@ -24,12 +24,9 @@ namespace HectorSLAM.Map
         /// <param name="gridMap"></param>
         public OccGridMapUtil(GridMap gridMap)
         {
-            cacheMethod = new GridMapCacheArray();
+            cacheMethod = new GridMapCacheArray(gridMap.Dimensions);
             this.gridMap = gridMap;
             samplePoints = new List<Vector3>();
-
-            mapObstacleThreshold = gridMap.GetObstacleThreshold();
-            cacheMethod.SetMapSize(gridMap.Dimensions);
         }
 
         public Vector3 GetWorldCoordsPose(Vector3 mapPose)
@@ -49,10 +46,21 @@ namespace HectorSLAM.Map
 
         public void GetCompleteHessianDerivs(Vector3 pose, DataContainer dataPoints, out Matrix4x4 H, out Vector3 dTr)
         {
-            Matrix4x4 transform = GetTransformForState(pose);
+            //Matrix4x4 transform1 = GetTransformForState(pose);
+            /*Matrix3x2 transform =
+                Matrix3x2.CreateTranslation(pose.X, pose.Y) *
+                Matrix3x2.CreateRotation(pose.Z) *
+                Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);*/
+
+            Matrix3x2 transform =
+                Matrix3x2.CreateTranslation(pose.X, pose.Y) *
+                Matrix3x2.CreateRotation(pose.Z);
+                //Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);
 
             float sinRot = MathF.Sin(pose.Z);
             float cosRot = MathF.Cos(pose.Z);
+
+            Matrix3x2 st = Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);
 
             H = new Matrix4x4
             {
@@ -63,7 +71,9 @@ namespace HectorSLAM.Map
 
             foreach (Vector2 currPoint in dataPoints)
             {
-                Vector3 transformedPointData = InterpMapValueWithDerivatives(Vector2.Transform(currPoint, transform));
+                Vector2 currPointS = Vector2.Transform(currPoint, st);
+                Vector2 currPointMap = Vector2.Transform(currPointS, transform);
+                Vector3 transformedPointData = InterpMapValueWithDerivatives(currPointMap);
 
                 float funVal = 1.0f - transformedPointData.X;
 
@@ -192,7 +202,7 @@ namespace HectorSLAM.Map
             return GetLikelihoodForResidual(resid, dataPoints.Count);
         }
 
-        public float GetLikelihoodForResidual(float residual, int numDataPoints)
+        public static float GetLikelihoodForResidual(float residual, int numDataPoints)
         {
             return 1.0f - (residual / (float)numDataPoints);
         }
@@ -202,7 +212,7 @@ namespace HectorSLAM.Map
             int stepSize = 1;
             float residual = 0.0f;
 
-            Matrix4x4 transform = GetTransformForState(state);
+            Matrix3x2 transform = GetTransformForState(state);
 
             for (int i = 0; i < dataPoints.Count; i += stepSize)
             {
@@ -213,11 +223,13 @@ namespace HectorSLAM.Map
             return residual;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetUnfilteredGridPoint(Point gridCoords)
         {
             return gridMap.GetGridProbabilityMap(gridCoords.X + gridCoords.Y * gridMap.Dimensions.X);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetUnfilteredGridPoint(int index)
         {
             return gridMap.GetGridProbabilityMap(index);
@@ -345,14 +357,13 @@ namespace HectorSLAM.Map
                 -((dy1 * yFacInv) + (dy2 * factors.Y)));
         }
 
-        public Matrix4x4 GetTransformForState(Vector3 transVector)
+        public Matrix3x2 GetTransformForState(Vector3 transVector)
         {
-            return Matrix4x4.CreateTranslation(transVector.X, transVector.Y, 0.0f) * Matrix4x4.CreateRotationZ(transVector.Z);
-        }
-
-        public Matrix4x4 getTranslationForState(Vector3 transVector)
-        {
-            return Matrix4x4.CreateTranslation(transVector.X, transVector.Y, 0.0f);
+            // return Eigen::Translation2f(transVector[0], transVector[1]) * Eigen::Rotation2Df(transVector[2]);
+            return
+                Matrix3x2.CreateTranslation(transVector.X, transVector.Y) *
+                Matrix3x2.CreateRotation(transVector.Z);
+                //Matrix4x4.CreateScale(gridMap.Properties.ScaleToMap);
         }
 
         public void ResetCachedData()

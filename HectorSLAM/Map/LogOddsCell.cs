@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HectorSLAM.Map
@@ -7,8 +8,11 @@ namespace HectorSLAM.Map
     /// <summary>
     /// Provides a log odds of occupancy probability representation for cells in a occupancy grid map.
     /// </summary>
-    public record LogOddsCell : ICell
+    public struct LogOddsCell : ICell
     {
+        /// <summary>
+        /// Update index
+        /// </summary>
         public int UpdateIndex { get; set; }
 
         /// <summary>

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HectorSLAM.Map
@@ -13,7 +14,7 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Array used for caching data.
         /// </summary>
-        private CachedMapElement[] array = null;
+        private readonly CachedMapElement[] array = null;
 
         /// <summary>
         /// The cache iteration index value
@@ -21,16 +22,24 @@ namespace HectorSLAM.Map
         private int currentIndex = 0;
 
         /// <summary>
-        /// The size of the array
+        /// The dimensions of the array
         /// </summary>
-        public Point Dimensions { get; private set; } = new Point(-1, -1);
+        public Point Dimensions { get; init; }
 
         /// <summary>
         /// Constructor
         /// </summary>
-        public GridMapCacheArray()
+        /// <param name="dimensions">Dimensionss</param>
+        public GridMapCacheArray(Point dimensions)
         {
-            // TODO Put array size changing into contructor
+            Dimensions = dimensions;
+
+            int size = Dimensions.X * Dimensions.Y;
+            array = new CachedMapElement[size];
+            for (int x = 0; x < size; ++x)
+            {
+                array[x].index = -1;
+            }
         }
 
         /// <summary>
@@ -41,12 +50,13 @@ namespace HectorSLAM.Map
             currentIndex++;
         }
 
-        /**
-         * Checks wether cached data for coords is available. If this is the case, writes data into val.
-         * @param coords The coordinates
-         * @param val Reference to a float the data is written to if available
-         * @return Indicates if cached data is available
-         */
+        /// <summary>
+        /// Checks whether cached data for coordinates is available. If this is the case, writes data into value.
+        /// </summary>
+        /// <param name="index">Array index</param>
+        /// <param name="value">Item value</param>
+        /// <returns>true if data at index exists</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ContainsCachedData(int index, out float value)
         {
             if (array[index].index == currentIndex)
@@ -61,53 +71,16 @@ namespace HectorSLAM.Map
             }
         }
 
-        /**
-         * Caches float value val for coordinates coords.
-         * @param coords The coordinates
-         * @param val The value to be cached for coordinates.
-         */
+        /// <summary>
+        /// Caches float value val for coordinates coords.
+        /// </summary>
+        /// <param name="index">Array index</param>
+        /// <param name="value">Item value</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void CacheData(int index, float value)
         {
             array[index].index = currentIndex;
             array[index].value = value;
-        }
-
-        /**
-         * Sets the map size and resizes the cache array accordingly
-         * @param sizeIn The map size.
-         */
-        public void SetMapSize(Point newDimensions)
-        {
-            SetArraySize(newDimensions);
-        }
-    
-        /**
-        * Creates a cache array of size sizeIn.
-        * @param sizeIn The size of the array
-        */
-        protected void CreateCacheArray(Point newDimensions)
-        {
-            Dimensions = newDimensions;
-
-            int size = Dimensions.X * Dimensions.Y;
-
-            array = new CachedMapElement[size];
-
-            for (int x = 0; x < size; ++x)
-            {
-                array[x].index = -1;
-            }
-        }
-
-        /**
-         * Sets a new cache array size
-         */
-        protected void SetArraySize(Point newDimensions)
-        {
-            if (Dimensions != newDimensions)
-            {
-                CreateCacheArray(newDimensions);
-            }
-        }
+        }      
     }
 }

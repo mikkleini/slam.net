@@ -29,7 +29,7 @@ namespace HectorSLAM.Main
             gridMapUtil.ResetCachedData();
         }
 
-        public float ScaleToMap => gridMap.ScaleToMap;
+        public float ScaleToMap => gridMap.Properties.ScaleToMap;
 
         public int NumLevels => 1;
 

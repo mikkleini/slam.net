@@ -16,7 +16,7 @@ namespace HectorSLAM.Main
         private readonly IHectorDebugInfo debugInterface;
 
         public MapRepMultiMap MapRep { get; protected set; }
-        public Vector3 LastMapUpdatePose { get; protected set; }
+        public Vector3 LastMapUpdatePose { get; set; }
         public Vector3 LastScanMatchPose { get; set; }
         public Matrix4x4 LastScanMatchCov { get; protected set; }
         public float MinDistanceDiffForMapUpdate { get; set; }
@@ -67,7 +67,7 @@ namespace HectorSLAM.Main
 
             Reset();
 
-            MinDistanceDiffForMapUpdate = 0.2f * 1.0f;
+            MinDistanceDiffForMapUpdate = 0.3f * 1.0f;
             MinAngleDiffForMapUpdate = 0.13f * 1.0f;
         }
 
@@ -97,6 +97,11 @@ namespace HectorSLAM.Main
 
             if (Util.Util.PoseDifferenceLargerThan(LastScanMatchPose, LastMapUpdatePose, MinDistanceDiffForMapUpdate, MinAngleDiffForMapUpdate) || mapWithoutMatching)
             {
+                if (MathF.Abs(LastScanMatchPose.Z) >= 0.1f)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Large angular change: {LastScanMatchPose}");
+                }
+
                 MapRep.UpdateByScan(dataContainer, LastScanMatchPose);
                 MapRep.OnMapUpdated();
                 LastMapUpdatePose = LastScanMatchPose;

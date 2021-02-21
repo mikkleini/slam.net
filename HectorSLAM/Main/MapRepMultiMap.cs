@@ -15,9 +15,8 @@ namespace HectorSLAM.Main
     public class MapRepMultiMap : IMapRepresentation
     {
         private readonly MapProcContainer[] mapContainers;
-        private readonly DataContainer[] dataContainers;
 
-        public float ScaleToMap => mapContainers[0].GridMap.ScaleToMap;
+        public float ScaleToMap => mapContainers[0].GridMap.Properties.ScaleToMap;
 
         /// <summary>
         /// Number of map levels
@@ -45,12 +44,6 @@ namespace HectorSLAM.Main
             float mid_offset_y = totalMapSizeY * startCoords.Y;
 
             mapContainers = new MapProcContainer[numDepth];
-            dataContainers = new DataContainer[numDepth - 1];
-
-            for (int i = 0; i < numDepth - 1; i++)
-            {
-                dataContainers[i] = new DataContainer();
-            }
 
             for (int i = 0; i < numDepth; ++i)
             {
@@ -97,17 +90,14 @@ namespace HectorSLAM.Main
             Vector3 tmp = beginEstimateWorld;
             covMatrix = Matrix4x4.Identity; // It should not be returned
 
+            System.Diagnostics.Debug.WriteLine($"  Match start at pose {tmp}");
+
+            // Start matching from coarsest map
             for (int index = mapContainers.Length - 1; index >= 0; --index)
             {
-                if (index == 0)
-                {
-                    tmp = mapContainers[index].MatchData(tmp, dataContainer, out covMatrix, 5);
-                }
-                else
-                {
-                    dataContainers[index - 1].SetFrom(dataContainer, 1.0f / MathF.Pow(2.0f, index));
-                    tmp = mapContainers[index].MatchData(tmp, dataContainers[index - 1], out covMatrix, 3);
-                }
+                tmp = mapContainers[index].MatchData(tmp, dataContainer, out covMatrix, (index == 0 ? 5 : 3));
+
+                System.Diagnostics.Debug.WriteLine($"  Match level {index} pose {tmp}");
             }
 
             return tmp;
@@ -115,27 +105,17 @@ namespace HectorSLAM.Main
 
         public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
         {
-            for (int i = 0; i < mapContainers.Length; ++i)
-            {
-                if (i == 0)
-                {
-                    mapContainers[i].UpdateByScan(dataContainer, robotPoseWorld);
-                }
-                else
-                {
-                    mapContainers[i].UpdateByScan(dataContainers[i - 1], robotPoseWorld);
-                }
-            }
+            mapContainers.ForEach(m => m.UpdateByScan(dataContainer, robotPoseWorld));
         }
 
         public void SetUpdateFactorFree(float factor)
         {
-            mapContainers.ForEach(p => p.GridMap.SetUpdateFreeFactor(factor));
+            mapContainers.ForEach(m => m.GridMap.SetUpdateFreeFactor(factor));
         }
 
         public void SetUpdateFactorOccupied(float factor)
         {
-            mapContainers.ForEach(p => p.GridMap.SetUpdateOccupiedFactor(factor));
+            mapContainers.ForEach(m => m.GridMap.SetUpdateOccupiedFactor(factor));
         }
     }
 }

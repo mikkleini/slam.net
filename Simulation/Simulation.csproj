@@ -6,6 +6,10 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\BaseSLAM\BaseSLAM.csproj" />
     <ProjectReference Include="..\Box2D\src\box2dx\Box2D.NetStandard\Box2D.NetStandard.csproj" />

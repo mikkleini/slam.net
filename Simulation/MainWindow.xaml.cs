@@ -71,9 +71,13 @@ namespace Simulation
 
             holeMapBitmap = new WriteableBitmap(coreSlam.HoleMap.Size, coreSlam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
 
-            hectorSlam = new HectorSLAMProcessor(40.0f / 512, 512, 512, new Vector2(0.0f, 0.0f), 2);
-            hectorSlam.LastScanMatchPose = startPos.ToVector3();
-
+            hectorSlam = new HectorSLAMProcessor(40.0f / 1600, 1600, 1600, new Vector2(0.5f, 0.5f), 2)
+            {
+                LastScanMatchPose = startPos.ToVector3(),
+                LastMapUpdatePose = startPos.ToVector3(),
+                MinDistanceDiffForMapUpdate = 0.1f,
+                MinAngleDiffForMapUpdate = 0.1f
+            };
 
             // Create field
             field.CreateDefaultField(30.0f, new Vector2(5.0f, 5.0f));
@@ -125,6 +129,7 @@ namespace Simulation
                 if (doReset)
                 {
                     coreSlam.Reset();
+                    hectorSlam.Reset();
                     lidarPos = startPos;
                     doReset = false;
                 }
@@ -136,17 +141,16 @@ namespace Simulation
                 ScanSegments(lpos, coreSlam.Pose, out List<ScanSegment> scanSegments);
                 coreSlam.Update(scanSegments);
 
-                Vector3 lhp = lpos.ToVector3();// + new Vector3(0.2f, 0.1f, 0.0f);
-                //Vector3 lhp = hectorSlam.LastScanMatchPose;
+
+                //Vector3 lhp = lpos.ToVector3();// + new Vector3(1.2f, 0.1f, 0.0f);
+                Vector3 lhp = hectorSlam.LastScanMatchPose;
+                //Vector3 lhp = (lpos.ToVector3() + hectorSlam.LastScanMatchPose) / 2.0f;
+                //Vector3 lhp = startPos.ToVector3();
 
                 DataContainer dt = new DataContainer
                 {
-                    Origo = new Vector2(0, 0)
+                    Origin = new Vector2(0, 0)
                 };
-
-                Vector2 scale = //hectorSlam.MapRep.GetGridMap(0).Properties.Dimensions.ToVector2() * (1.0f / hectorSlam.MapRep.GetGridMap(0).Properties.CellLength);
-                    new Vector2(512 / 40.0f, 512 / 40.0f);
-                //float f = hectorSlam.MapRep.ScaleToMap * ;
 
                 foreach (ScanSegment seg in scanSegments)
                 {
@@ -154,13 +158,13 @@ namespace Simulation
                     {
                         dt.Add(new Vector2()
                         {
-                            X = ray.Radius * MathF.Cos(ray.Angle) * scale.X,
-                            Y = ray.Radius * MathF.Sin(ray.Angle) * scale.Y,
+                            X = ray.Radius * MathF.Cos(ray.Angle),
+                            Y = ray.Radius * MathF.Sin(ray.Angle),
                         });
                     }
                 }
 
-                hectorSlam.Update(dt, lhp);
+                hectorSlam.Update(dt, lhp, loops < 20);
 
                 // Ensure periodicity
                 Thread.Sleep((int)Math.Max(0, (long)scanPeriod - sw.ElapsedMilliseconds));
@@ -190,22 +194,23 @@ namespace Simulation
 
             //DrawArea.Children.Add(holeMapImage);
 
-            // Construct occupanci map image
+            // Construct occupancy map image
+            
             var map = hectorSlam.MapRep.GetGridMap(0);
-
+            int div = 2;
             
-            
-            var occupancyMapBitmap = new WriteableBitmap(map.Dimensions.X, map.Dimensions.Y, 96, 96, PixelFormats.Gray8, null);
+            var occupancyMapBitmap = new WriteableBitmap(map.Dimensions.X / div, map.Dimensions.Y / div, 96, 96, PixelFormats.Gray8, null);
 
-            for (int y = 0; y < map.Dimensions.Y; y++)
+            occupancyMapBitmap.Lock();
+
+            for (int y = 0; y < map.Dimensions.Y / div; y++)
             {
-                for (int x = 0; x < map.Dimensions.X; x++)
+                for (int x = 0; x < map.Dimensions.X / div; x++)
                 {
                     Int32Rect pr = new Int32Rect(x, y, 1, 1);
                     byte[] data = new byte[1];
-                    ICell cell = map.GetCell(x, y);
-                    //data[0] = (byte)(127.0f + cell.Value);
-                    
+                    ICell cell = map.GetCell(x * div, y * div);
+
                     if (cell.IsFree)
                     {
                         data[0] = 255;
@@ -222,15 +227,16 @@ namespace Simulation
                     //data[0] = (byte)(cell.UpdateIndex % 256);
 
                     occupancyMapBitmap.WritePixels(pr, data, occupancyMapBitmap.PixelWidth, 0);
-                    
                 }
             }
+
+            occupancyMapBitmap.Unlock();
 
             Image occMapImage = new Image()
             {
                 Source = occupancyMapBitmap,
                 Width = map.Properties.PhysicalSize.X,
-                Height = map.Properties.PhysicalSize.Y
+                Height = map.Properties.PhysicalSize.Y,
             };
 
             DrawArea.Children.Add(occMapImage);
