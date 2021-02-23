@@ -71,12 +71,12 @@ namespace Simulation
 
             holeMapBitmap = new WriteableBitmap(coreSlam.HoleMap.Size, coreSlam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
 
-            hectorSlam = new HectorSLAMProcessor(40.0f / 1600, 1600, 1600, new Vector2(0.5f, 0.5f), 2)
+            hectorSlam = new HectorSLAMProcessor(40.0f / 1600, 1600, 1600, Vector2.Zero, 6)
             {
                 LastScanMatchPose = startPos.ToVector3(),
                 LastMapUpdatePose = startPos.ToVector3(),
-                MinDistanceDiffForMapUpdate = 0.1f,
-                MinAngleDiffForMapUpdate = 0.1f
+                MinDistanceDiffForMapUpdate = 0.4f,
+                MinAngleDiffForMapUpdate = 0.15f
             };
 
             // Create field
@@ -196,8 +196,8 @@ namespace Simulation
 
             // Construct occupancy map image
             
-            var map = hectorSlam.MapRep.GetGridMap(0);
-            int div = 2;
+            var map = hectorSlam.MapRep.GetGridMap(hectorSlam.MapRep.NumLevels - 1);
+            int div = 1;
             
             var occupancyMapBitmap = new WriteableBitmap(map.Dimensions.X / div, map.Dimensions.Y / div, 96, 96, PixelFormats.Gray8, null);
 

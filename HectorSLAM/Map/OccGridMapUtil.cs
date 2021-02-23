@@ -46,33 +46,32 @@ namespace HectorSLAM.Map
 
         public void GetCompleteHessianDerivs(Vector3 pose, DataContainer dataPoints, out Matrix4x4 H, out Vector3 dTr)
         {
-            //Matrix4x4 transform1 = GetTransformForState(pose);
+            var transform = GetTransformForState(pose);
             /*Matrix3x2 transform =
                 Matrix3x2.CreateTranslation(pose.X, pose.Y) *
                 Matrix3x2.CreateRotation(pose.Z) *
                 Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);*/
 
-            Matrix3x2 transform =
-                Matrix3x2.CreateTranslation(pose.X, pose.Y) *
-                Matrix3x2.CreateRotation(pose.Z);
-                //Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);
+            /*Matrix3x2 transform =
+                Matrix3x2.CreateTranslation(pose.X * gridMap.Properties.CellLength, pose.Y * gridMap.Properties.CellLength) *
+                Matrix3x2.CreateRotation(pose.Z) *
+                Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);*/
 
             float sinRot = MathF.Sin(pose.Z);
             float cosRot = MathF.Cos(pose.Z);
 
-            Matrix3x2 st = Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);
-
             H = new Matrix4x4
             {
-                M44 = 1.0f // Needed to make matrix inversible
+                M44 = 1.0f, // Needed to make matrix inversible
             };
 
             dTr = Vector3.Zero;
 
             foreach (Vector2 currPoint in dataPoints)
             {
-                Vector2 currPointS = Vector2.Transform(currPoint, st);
-                Vector2 currPointMap = Vector2.Transform(currPointS, transform);
+                var currPoint2 = new Vector2(currPoint.X / gridMap.Properties.CellLength, currPoint.Y / gridMap.Properties.CellLength);
+
+                Vector2 currPointMap = Vector2.Transform(currPoint2, transform);
                 Vector3 transformedPointData = InterpMapValueWithDerivatives(currPointMap);
 
                 float funVal = 1.0f - transformedPointData.X;
@@ -80,8 +79,8 @@ namespace HectorSLAM.Map
                 dTr.X += transformedPointData.Y * funVal;
                 dTr.Y += transformedPointData.Z * funVal;
 
-                float rotDeriv = ((-sinRot * currPoint.X - cosRot * currPoint.Y) * transformedPointData.Y +
-                                   (cosRot * currPoint.X - sinRot * currPoint.Y) * transformedPointData.Z);
+                float rotDeriv = ((-sinRot * currPoint2.X - cosRot * currPoint2.Y) * transformedPointData.Y +
+                                   (cosRot * currPoint2.X - sinRot * currPoint2.Y) * transformedPointData.Z);
 
                 dTr.Z += rotDeriv * funVal;
 
@@ -212,7 +211,7 @@ namespace HectorSLAM.Map
             int stepSize = 1;
             float residual = 0.0f;
 
-            Matrix3x2 transform = GetTransformForState(state);
+            var transform = GetTransformForState(state);
 
             for (int i = 0; i < dataPoints.Count; i += stepSize)
             {
@@ -357,12 +356,12 @@ namespace HectorSLAM.Map
                 -((dy1 * yFacInv) + (dy2 * factors.Y)));
         }
 
-        public Matrix3x2 GetTransformForState(Vector3 transVector)
+        public Matrix4x4 GetTransformForState(Vector3 transVector)
         {
             // return Eigen::Translation2f(transVector[0], transVector[1]) * Eigen::Rotation2Df(transVector[2]);
             return
-                Matrix3x2.CreateTranslation(transVector.X, transVector.Y) *
-                Matrix3x2.CreateRotation(transVector.Z);
+                Matrix4x4.CreateTranslation(transVector.X, transVector.Y, 0) *
+                Matrix4x4.CreateRotationZ(transVector.Z);
                 //Matrix4x4.CreateScale(gridMap.Properties.ScaleToMap);
         }
 

@@ -28,7 +28,7 @@ namespace HectorSLAM.Map
             : base(mapResolution, size, offset)
         {
             SetUpdateFreeFactor(0.4f);
-            SetUpdateOccupiedFactor(0.6f);
+            SetUpdateOccupiedFactor(0.9f);
         }
         
         public void SetUpdateFreeFactor(float factor)
@@ -48,56 +48,10 @@ namespace HectorSLAM.Map
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void UpdateSetOccupied(int index)
-        {
-            if (mapArray[index].Value < 50.0f)
-            {
-                mapArray[index].Value += logOddsOccupied;
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void UpdateSetFree(int index)
-        {
-            mapArray[index].Value += logOddsFree;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void UpdateUnsetFree(int index)
-        {
-            mapArray[index].Value -= logOddsFree;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float GetGridProbabilityMap(int index)
         {
             float odds = MathF.Exp(mapArray[index].Value);
             return odds / (odds + 1.0f);
-        }
-
-        public bool IsOccupied(int xMap, int yMap)
-        {
-            return GetCell(xMap, yMap).IsOccupied;
-        }
-
-        public bool IsFree(int xMap, int yMap)
-        {
-            return GetCell(xMap, yMap).IsFree;
-        }
-
-        public bool IsOccupied(int index)
-        {
-            return GetCell(index).IsOccupied;
-        }
-
-        public bool IsFree(int index)
-        {
-            return GetCell(index).IsFree;
-        }
-
-        public float GetObstacleThreshold()
-        {
-            return 0.0f;
         }
 
         /// <summary>
@@ -126,10 +80,10 @@ namespace HectorSLAM.Map
             Point scanBeginMapi = scanBeginMapf.ToRoundPoint();
 
             //Iterate over all valid laser beams
-            for (int i = 0; i < dataContainer.Count; ++i)
+            foreach (Vector2 dataPoint in dataContainer)
             {
                 // Get map coordinates of the beam endpoint
-                Vector2 scanEndMapf = Vector2.Transform(dataContainer[i], poseTransform);
+                Vector2 scanEndMapf = Vector2.Transform(dataPoint, poseTransform);
                 Point scanEndMapi = scanEndMapf.ToRoundPoint();
 
                 // Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates

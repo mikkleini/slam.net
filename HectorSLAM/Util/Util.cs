@@ -31,7 +31,7 @@ namespace HectorSLAM.Util
         public static bool PoseDifferenceLargerThan(Vector3 pose1, Vector3 pose2, float distanceDiffThresh, float angleDiffThresh)
         {
             // Check distance
-            if (Vector2.Distance(pose1.ToVector2(), pose2.ToVector2()) > distanceDiffThresh)
+            if (Vector2.DistanceSquared(pose1.ToVector2(), pose2.ToVector2()) > distanceDiffThresh.Sqr())
             {
                 return true;
             }

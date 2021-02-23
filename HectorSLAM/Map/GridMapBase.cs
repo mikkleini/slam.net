@@ -47,7 +47,7 @@ namespace HectorSLAM.Map
             }
 
             // Construct transformation matrix
-            mapTworld = Matrix3x2.CreateTranslation(Properties.Offset.X, Properties.Offset.Y) * Matrix3x2.CreateScale(Properties.ScaleToMap);
+            mapTworld = Matrix3x2.CreateScale(Properties.ScaleToMap) * Matrix3x2.CreateTranslation(Properties.Offset.X, Properties.Offset.Y);
             if (!Matrix3x2.Invert(mapTworld, out worldTmap))
             {
                 throw new Exception("Map to world matrix is not invertible");

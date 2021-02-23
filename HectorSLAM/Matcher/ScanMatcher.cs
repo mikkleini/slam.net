@@ -87,6 +87,7 @@ namespace HectorSLAM.Matcher
             {
                 if (!Matrix4x4.Invert(H, out Matrix4x4 iH))
                 {
+                    System.Diagnostics.Debug.WriteLine($"Failed to calculate inverse matrix {H}");
                     return false;
                 }
 
@@ -103,11 +104,24 @@ namespace HectorSLAM.Matcher
                     System.Diagnostics.Debug.WriteLine("SearchDir angle change too large");
                 }
 
-                //UpdateEstimatedPose(ref estimate, searchDir);
-                estimate += searchDir;
+                UpdateEstimatedPose(ref estimate, searchDir);
 
                 return true;
             }
+
+            return false;
+        }
+
+        protected bool Inverse3x3(Matrix4x4 input, out Matrix4x4 output)
+        {
+            //Matrix4x4.i
+
+            float d =
+                input.M11 * (input.M22 * input.M33 - input.M23 * input.M32) -
+                input.M12 * (input.M21 * input.M33 - input.M23 * input.M31) +
+                input.M13 * (input.M21 * input.M32 - input.M22 * input.M31);
+
+            output = new Matrix4x4();
 
             return false;
         }
@@ -120,7 +134,7 @@ namespace HectorSLAM.Matcher
         protected void DrawScan(Vector3 pose, OccGridMapUtil gridMapUtil, DataContainer dataContainer)
         {
             drawInterface.SetScale(0.02);
-            Matrix3x2 transform = gridMapUtil.GetTransformForState(pose);
+            var transform = gridMapUtil.GetTransformForState(pose);
 
             for (int i = 0; i < dataContainer.Count; ++i)
             {
