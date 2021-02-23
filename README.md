@@ -30,13 +30,16 @@ The lidar ray tracing is done with .NET variant of [Box2D](https://github.com/be
 
 ## HectorSLAM
 
-This is the attempt to port [HectorSLAM](https://github.com/tu-darmstadt-ros-pkg/hector_slam) algorithm from C++ to C#.
-HectorSLAM is a ROS package and based on what I've read and seen it looks much more stable than CoreSLAM.
+This is the port of [HectorSLAM](https://github.com/tu-darmstadt-ros-pkg/hector_slam) algorithm from C++ to C#.
+HectorSLAM is originally a ROS package and based on what I've read and seen it looks much more stable than CoreSLAM.
 Since I'm not very fond of C++ boilerplate code (getters and setters) I started porting it and actually it went much smaller in lines of code.
-However this is very-very raw and doesn't work. I've just manage to make it compile, but haven't yet tried out.
-I wanted to use .NET Core System.Numerics namespace, but the downside is that Numerics doesn't have 3x3 matrixes and other helper functions which are in Eigen C++ library (what the original HectorSLAM uses).
+Actually there's quite a bit of unused functions also, so it's possible to strip it down even further.
+The code uses .NET System.Numerics namespace so there's no external dependency.
 
-So let's say it's work in progress.
+In the simulator it works fine as long as the robot (mouse cursor) movement speed per lidar scan is less than the physical pixels size of coarsest map.
+E.g. if the resolution is 0.05m, map size is 400x400, map levels is 3, scan rate is 7 scans/sec then max speed must be:
+  (400 * 0.05m) / 2<sup>3</sup> => 2.5 m/scan => 0,35 m/s.
+I haven't yet tried in real world.
 
 ----
 
