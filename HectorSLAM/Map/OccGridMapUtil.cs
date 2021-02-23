@@ -46,19 +46,16 @@ namespace HectorSLAM.Map
 
         public void GetCompleteHessianDerivs(Vector3 pose, DataContainer dataPoints, out Matrix4x4 H, out Vector3 dTr)
         {
-            var transform = GetTransformForState(pose);
-            /*Matrix3x2 transform =
-                Matrix3x2.CreateTranslation(pose.X, pose.Y) *
-                Matrix3x2.CreateRotation(pose.Z) *
-                Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);*/
-
-            /*Matrix3x2 transform =
+            // Transformation of lidar measurements.
+            // Translation is in pixels, need to convert it meters first.
+            Matrix3x2 transform =
                 Matrix3x2.CreateTranslation(pose.X * gridMap.Properties.CellLength, pose.Y * gridMap.Properties.CellLength) *
                 Matrix3x2.CreateRotation(pose.Z) *
-                Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);*/
+                Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);
 
-            float sinRot = MathF.Sin(pose.Z);
-            float cosRot = MathF.Cos(pose.Z);
+            // Do the measurements scaling here, rather than wasting time in the rotDeriv calculation
+            float sinRot = MathF.Sin(pose.Z) / gridMap.Properties.CellLength;
+            float cosRot = MathF.Cos(pose.Z) / gridMap.Properties.CellLength;
 
             H = new Matrix4x4
             {
@@ -69,9 +66,7 @@ namespace HectorSLAM.Map
 
             foreach (Vector2 currPoint in dataPoints)
             {
-                var currPoint2 = new Vector2(currPoint.X / gridMap.Properties.CellLength, currPoint.Y / gridMap.Properties.CellLength);
-
-                Vector2 currPointMap = Vector2.Transform(currPoint2, transform);
+                Vector2 currPointMap = Vector2.Transform(currPoint, transform);
                 Vector3 transformedPointData = InterpMapValueWithDerivatives(currPointMap);
 
                 float funVal = 1.0f - transformedPointData.X;
@@ -79,8 +74,8 @@ namespace HectorSLAM.Map
                 dTr.X += transformedPointData.Y * funVal;
                 dTr.Y += transformedPointData.Z * funVal;
 
-                float rotDeriv = ((-sinRot * currPoint2.X - cosRot * currPoint2.Y) * transformedPointData.Y +
-                                   (cosRot * currPoint2.X - sinRot * currPoint2.Y) * transformedPointData.Z);
+                float rotDeriv = ((-sinRot * currPoint.X - cosRot * currPoint.Y) * transformedPointData.Y +
+                                   (cosRot * currPoint.X - sinRot * currPoint.Y) * transformedPointData.Z);
 
                 dTr.Z += rotDeriv * funVal;
 

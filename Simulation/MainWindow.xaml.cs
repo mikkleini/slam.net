@@ -71,7 +71,8 @@ namespace Simulation
 
             holeMapBitmap = new WriteableBitmap(coreSlam.HoleMap.Size, coreSlam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
 
-            hectorSlam = new HectorSLAMProcessor(40.0f / 1600, 1600, 1600, Vector2.Zero, 6)
+            // Important tip: the robot movement speed cannot be greater than a coarsest map pixel per scan.
+            hectorSlam = new HectorSLAMProcessor(40.0f / 400, 400, 400, Vector2.Zero, 4)
             {
                 LastScanMatchPose = startPos.ToVector3(),
                 LastMapUpdatePose = startPos.ToVector3(),
@@ -141,11 +142,8 @@ namespace Simulation
                 ScanSegments(lpos, coreSlam.Pose, out List<ScanSegment> scanSegments);
                 coreSlam.Update(scanSegments);
 
-
-                //Vector3 lhp = lpos.ToVector3();// + new Vector3(1.2f, 0.1f, 0.0f);
+                //Vector3 lhp = lpos.ToVector3();
                 Vector3 lhp = hectorSlam.LastScanMatchPose;
-                //Vector3 lhp = (lpos.ToVector3() + hectorSlam.LastScanMatchPose) / 2.0f;
-                //Vector3 lhp = startPos.ToVector3();
 
                 DataContainer dt = new DataContainer
                 {
@@ -164,7 +162,7 @@ namespace Simulation
                     }
                 }
 
-                hectorSlam.Update(dt, lhp, loops < 20);
+                hectorSlam.Update(dt, lhp, loops < 10);
 
                 // Ensure periodicity
                 Thread.Sleep((int)Math.Max(0, (long)scanPeriod - sw.ElapsedMilliseconds));
@@ -223,8 +221,6 @@ namespace Simulation
                     {
                         data[0] = 127;
                     }
-                    
-                    //data[0] = (byte)(cell.UpdateIndex % 256);
 
                     occupancyMapBitmap.WritePixels(pr, data, occupancyMapBitmap.PixelWidth, 0);
                 }
@@ -238,6 +234,8 @@ namespace Simulation
                 Width = map.Properties.PhysicalSize.X,
                 Height = map.Properties.PhysicalSize.Y,
             };
+
+            RenderOptions.SetBitmapScalingMode(occMapImage, BitmapScalingMode.Linear);
 
             DrawArea.Children.Add(occMapImage);
 
@@ -362,7 +360,7 @@ namespace Simulation
             {
                 if (field.RayTrace(realPos, angle, maxScanDist, out float hit))
                 {
-                    //hit += ((float)rnd.Next(-100, 100) / 100.0f) * measureError;
+                    hit += ((float)rnd.Next(-100, 100) / 100.0f) * measureError;
 
                     scanSegment.Rays.Add(new Ray(angle, hit));
                 }

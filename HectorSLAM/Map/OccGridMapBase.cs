@@ -65,11 +65,6 @@ namespace HectorSLAM.Map
             currMarkOccIndex = currUpdateIndex + 2;
 
             // Get a 2D homogenous transform that can be left-multiplied to a robot coordinates vector to get world coordinates of that vector
-            /*Matrix3x2 poseTransform =
-                Matrix3x2.CreateRotation(robotPoseWorld.Z) *                       // Rotate
-                Matrix3x2.CreateTranslation(robotPoseWorld.X, robotPoseWorld.Y) *  // Translate position
-                Matrix3x2.CreateScale(Properties.ScaleToMap);                      // Meters to pixels*/
-
             Matrix3x2 poseTransform =
                 Matrix3x2.CreateTranslation(robotPoseWorld.X, robotPoseWorld.Y) *  // Translate position
                 Matrix3x2.CreateRotation(robotPoseWorld.Z) *                       // Rotate                
@@ -100,16 +95,21 @@ namespace HectorSLAM.Map
             currUpdateIndex += 3;
         }
 
-        private void UpdateLineBresenhami(Point beginMap, Point endMap)
+        /// <summary>
+        /// Draw beam between beginning and end point
+        /// </summary>
+        /// <param name="begin"></param>
+        /// <param name="end"></param>
+        private void UpdateLineBresenhami(Point begin, Point end)
         {
             // Check if beam start and end point is inside map
-            if (!Properties.IsPointInDimensions(beginMap) || !Properties.IsPointInDimensions(endMap))
+            if (!Properties.IsPointInDimensions(begin) || !Properties.IsPointInDimensions(end))
             {
                 return;
             }
 
-            int dx = endMap.X - beginMap.X;
-            int dy = endMap.Y - beginMap.Y;
+            int dx = end.X - begin.X;
+            int dy = end.Y - begin.Y;
 
             int abs_dx = Math.Abs(dx);
             int abs_dy = Math.Abs(dy);
@@ -117,7 +117,7 @@ namespace HectorSLAM.Map
             int offset_dx = Math.Sign(dx);
             int offset_dy = Math.Sign(dy) * Dimensions.X;
 
-            int startOffset = beginMap.Y * Dimensions.X + beginMap.X;
+            int startOffset = begin.Y * Dimensions.X + begin.X;
 
             //if x is dominant
             if (abs_dx >= abs_dy)
@@ -132,7 +132,7 @@ namespace HectorSLAM.Map
                 Bresenham2D(abs_dy, abs_dx, error_x, offset_dy, offset_dx, startOffset);
             }
 
-            int endOffset = endMap.Y * Dimensions.X + endMap.X;
+            int endOffset = end.Y * Dimensions.X + end.X;
 
             BresenhamCellOcc(endOffset);
         }
