@@ -41,6 +41,9 @@ E.g. if the resolution is 0.05m, map size is 400x400, map levels is 3, scan rate
   (400 * 0.05m) / 2<sup>3</sup> => 2.5 m/scan => 0,35 m/s.
 I haven't yet tried in real world.
 
+Here's the picture of the HectorSLAM functioning in simulation:
+![Simulation](simulation_hectorslam.png)
+
 ----
 
 *PS.*
