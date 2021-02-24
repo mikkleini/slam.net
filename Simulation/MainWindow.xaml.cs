@@ -22,7 +22,6 @@ using CoreSLAM;
 using HectorSLAM;
 using HectorSLAM.Main;
 using HectorSLAM.Map;
-using HectorSLAM.Scan;
 
 namespace Simulation
 {
@@ -33,7 +32,7 @@ namespace Simulation
     {
         // Constnts
         private const int numScanPoints = 400;     // Scan points per revolution
-        private const float scanPerSecond = 7.0f;  // Scan / second
+        private const float scanPerSecond = 17.0f;  // Scan / second
         private const float maxScanDist = 40.0f;   // Meters
         private const float measureError = 0.02f;  // Meters
         private const int scanPeriod = (int)(1000.0 / scanPerSecond); // Milliseconds
@@ -145,16 +144,16 @@ namespace Simulation
                 //Vector3 lhp = lpos.ToVector3();
                 Vector3 lhp = hectorSlam.LastScanMatchPose;
 
-                DataContainer dt = new DataContainer
+                ScanCloud scanCloud = new ScanCloud()
                 {
-                    Origin = new Vector2(0, 0)
+                    Pose = Vector3.Zero
                 };
 
                 foreach (ScanSegment seg in scanSegments)
                 {
                     foreach (Ray ray in seg.Rays)
                     {
-                        dt.Add(new Vector2()
+                        scanCloud.Points.Add(new Vector2()
                         {
                             X = ray.Radius * MathF.Cos(ray.Angle),
                             Y = ray.Radius * MathF.Sin(ray.Angle),
@@ -162,7 +161,7 @@ namespace Simulation
                     }
                 }
 
-                hectorSlam.Update(dt, lhp, loops < 10);
+                hectorSlam.Update(scanCloud, lhp, loops < 10);
 
                 // Ensure periodicity
                 Thread.Sleep((int)Math.Max(0, (long)scanPeriod - sw.ElapsedMilliseconds));
@@ -194,7 +193,7 @@ namespace Simulation
 
             // Construct occupancy map image
             
-            var map = hectorSlam.MapRep.GetGridMap(hectorSlam.MapRep.NumLevels - 1);
+            var map = hectorSlam.MapRep.GetGridMap(0);
             int div = 1;
             
             var occupancyMapBitmap = new WriteableBitmap(map.Dimensions.X / div, map.Dimensions.Y / div, 96, 96, PixelFormats.Gray8, null);

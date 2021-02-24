@@ -4,17 +4,20 @@ using System.Drawing;
 using System.Numerics;
 using System.Text;
 using System.Linq;
+using System.Threading;
 using BaseSLAM;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
-using HectorSLAM.Scan;
 using HectorSLAM.Util;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace HectorSLAM.Main
 {
     public class MapRepMultiMap : IMapRepresentation
     {
         private readonly MapProcContainer[] mapContainers;
+        private readonly ParallelOptions parallelOptions;
 
         public float ScaleToMap => mapContainers[0].GridMap.Properties.ScaleToMap;
 
@@ -44,6 +47,10 @@ namespace HectorSLAM.Main
             float mid_offset_y = totalMapSizeY * startCoords.Y;
 
             mapContainers = new MapProcContainer[numDepth];
+            parallelOptions = new ParallelOptions()
+            {
+                MaxDegreeOfParallelism = numDepth
+            };
 
             for (int i = 0; i < numDepth; ++i)
             {
@@ -85,34 +92,55 @@ namespace HectorSLAM.Main
             mapContainers.ForEach(m => m.ResetCachedData());
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, out Matrix4x4 covMatrix)
+        /// <summary>
+        /// Match data and get best position estimate
+        /// </summary>
+        /// <param name="beginEstimate">Estimation hint position in world coordinates (meters)</param>
+        /// <param name="scan">Scanned points</param>
+        /// <param name="covMatrix"></param>
+        /// <returns></returns>
+        public Vector3 MatchData(Vector3 beginEstimate, ScanCloud scan, out Matrix4x4 covMatrix)
         {
-            Vector3 tmp = beginEstimateWorld;
+            Vector3 estimate = beginEstimate;
             covMatrix = Matrix4x4.Identity; // It should not be returned
 
-            System.Diagnostics.Debug.WriteLine($"  Match start at pose {tmp}");
+            //System.Diagnostics.Debug.WriteLine($"  Match start at pose {tmp}");
 
             // Start matching from coarsest map
             for (int index = mapContainers.Length - 1; index >= 0; --index)
             {
-                tmp = mapContainers[index].MatchData(tmp, dataContainer, out covMatrix, (index == 0 ? 5 : 3));
+                estimate = mapContainers[index].MatchData(estimate, scan, out covMatrix, (index == 0 ? 5 : 3));
 
-                System.Diagnostics.Debug.WriteLine($"  Match level {index} pose {tmp}");
+                //System.Diagnostics.Debug.WriteLine($"  Match level {index} pose {tmp}");
             }
 
-            return tmp;
+            return estimate;
         }
 
-        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
+        /// <summary>
+        /// Update map layers
+        /// </summary>
+        /// <param name="scan">Scanned points</param>
+        /// <param name="robotPoseWorld">Robot pose in world coordinates (meters)</param>
+        public void UpdateByScan(ScanCloud scan, Vector3 robotPoseWorld)
         {
-            mapContainers.ForEach(m => m.UpdateByScan(dataContainer, robotPoseWorld));
+            // Run update in parallel tasks. It's about twice as fast on 6 core CPU.
+            Parallel.ForEach(mapContainers, parallelOptions, m => m.UpdateByScan(scan, robotPoseWorld));
         }
 
+        /// <summary>
+        /// Set update factor free on all map layers
+        /// </summary>
+        /// <param name="factor">Factor from 0 to 1</param>
         public void SetUpdateFactorFree(float factor)
         {
             mapContainers.ForEach(m => m.GridMap.SetUpdateFreeFactor(factor));
         }
 
+        /// <summary>
+        /// Set update factor occupied on all map layers
+        /// </summary>
+        /// <param name="factor">Factor from 0 to 1</param>
         public void SetUpdateFactorOccupied(float factor)
         {
             mapContainers.ForEach(m => m.GridMap.SetUpdateOccupiedFactor(factor));

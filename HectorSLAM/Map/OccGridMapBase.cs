@@ -5,7 +5,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using BaseSLAM;
-using HectorSLAM.Scan;
 using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
@@ -57,9 +56,9 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Updates the map using the given scan data and robot pose
         /// </summary>
-        /// <param name="dataContainer">Scan points</param>
+        /// <param name="scan">Scan points</param>
         /// <param name="robotPoseWorld">Robot world pose (X and Y in meters, Z in radians)</param>
-        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
+        public void UpdateByScan(ScanCloud scan, Vector3 robotPoseWorld)
         {
             currMarkFreeIndex = currUpdateIndex + 1;
             currMarkOccIndex = currUpdateIndex + 2;
@@ -71,14 +70,14 @@ namespace HectorSLAM.Map
                 Matrix3x2.CreateScale(Properties.ScaleToMap);                      // Meters to pixels
 
             // Get start point of all laser beams
-            Vector2 scanBeginMapf = Vector2.Transform(dataContainer.Origin, poseTransform);
+            Vector2 scanBeginMapf = Vector2.Transform(scan.Pose.ToVector2(), poseTransform);
             Point scanBeginMapi = scanBeginMapf.ToRoundPoint();
 
             //Iterate over all valid laser beams
-            foreach (Vector2 dataPoint in dataContainer)
+            foreach (Vector2 scanPoint in scan.Points)
             {
                 // Get map coordinates of the beam endpoint
-                Vector2 scanEndMapf = Vector2.Transform(dataPoint, poseTransform);
+                Vector2 scanEndMapf = Vector2.Transform(scanPoint, poseTransform);
                 Point scanEndMapi = scanEndMapf.ToRoundPoint();
 
                 // Update map using a bresenham variant for drawing a line from beam start to beam endpoint in map coordinates

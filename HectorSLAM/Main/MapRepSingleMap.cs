@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
 using System.Text;
+using BaseSLAM;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
-using HectorSLAM.Scan;
 using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
@@ -43,14 +43,14 @@ namespace HectorSLAM.Main
             gridMapUtil.ResetCachedData();
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, out Matrix4x4 covMatrix)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, ScanCloud scan, out Matrix4x4 covMatrix)
         {
-            return scanMatcher.MatchData(beginEstimateWorld, gridMapUtil, dataContainer, out covMatrix, 20);
+            return scanMatcher.MatchData(beginEstimateWorld, gridMapUtil, scan, out covMatrix, 20);
         }
 
-        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
+        public void UpdateByScan(ScanCloud scan, Vector3 robotPoseWorld)
         {
-            gridMap.UpdateByScan(dataContainer, robotPoseWorld);
+            gridMap.UpdateByScan(scan, robotPoseWorld);
         }
 
         public void AddMapMutex(int i, IMapLocker mapMutex)

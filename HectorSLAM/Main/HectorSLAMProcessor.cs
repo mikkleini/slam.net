@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
 using System.Text;
 using BaseSLAM;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
-using HectorSLAM.Scan;
 using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
@@ -74,16 +74,20 @@ namespace HectorSLAM.Main
         /// <summary>
         /// Update with new data
         /// </summary>
-        /// <param name="dataContainer">Scan data</param>
+        /// <param name="scan">Scanned cloud points</param>
         /// <param name="poseHintWorld">Pose hint</param>
         /// <param name="mapWithoutMatching">Map without matching ?</param>
-        public void Update(DataContainer dataContainer, Vector3 poseHintWorld, bool mapWithoutMatching = false)
+        public void Update(ScanCloud scan, Vector3 poseHintWorld, bool mapWithoutMatching = false)
         {
-            System.Diagnostics.Debug.WriteLine($"ph: {poseHintWorld}");
+            //System.Diagnostics.Debug.WriteLine($"ph: {poseHintWorld}");
 
             if (!mapWithoutMatching)
             {
-                LastScanMatchPose = MapRep.MatchData(poseHintWorld, dataContainer, out Matrix4x4 lastScanMatchCov);
+                Stopwatch w = new Stopwatch();
+                w.Start();                
+                LastScanMatchPose = MapRep.MatchData(poseHintWorld, scan, out Matrix4x4 lastScanMatchCov);
+                System.Diagnostics.Debug.WriteLine($"Match time: {w.ElapsedTicks}"); // 600-700, 1000
+
                 LastScanMatchCov = lastScanMatchCov;
             }
             else
@@ -91,18 +95,14 @@ namespace HectorSLAM.Main
                 LastScanMatchPose = poseHintWorld;
             }
 
-            //std::cout << "\nt1:\n" << newPoseEstimateWorld << "\n";
-            //std::cout << "\n1";
-            //std::cout << "\n" << lastScanMatchPose << "\n";
-
-            if (Util.Util.PoseDifferenceLargerThan(LastScanMatchPose, LastMapUpdatePose, MinDistanceDiffForMapUpdate, MinAngleDiffForMapUpdate) || mapWithoutMatching)
+            // Update map(s) when:
+            //    Position or rotation has changed significantly.
+            //    Mapping is requested.
+            if (Vector2.DistanceSquared(LastScanMatchPose.ToVector2(), LastMapUpdatePose.ToVector2()) > MinDistanceDiffForMapUpdate.Sqr() ||
+                (MathEx.DegDiff(LastScanMatchPose.Z, LastMapUpdatePose.Z) > MinAngleDiffForMapUpdate) ||
+                mapWithoutMatching)
             {
-                if (MathF.Abs(LastScanMatchPose.Z) >= 0.1f)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Large angular change: {LastScanMatchPose}");
-                }
-
-                MapRep.UpdateByScan(dataContainer, LastScanMatchPose);
+                MapRep.UpdateByScan(scan, LastScanMatchPose);
                 MapRep.OnMapUpdated();
                 LastMapUpdatePose = LastScanMatchPose;
             }

@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Numerics;
 using System.Text;
+using BaseSLAM;
 using HectorSLAM.Map;
-using HectorSLAM.Scan;
 using HectorSLAM.Util;
 
 namespace HectorSLAM.Matcher
@@ -21,11 +21,11 @@ namespace HectorSLAM.Matcher
             this.debugInterface = debugInterface;
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, OccGridMapUtil gridMapUtil, DataContainer dataContainer, out Matrix4x4 covMatrix, int maxIterations)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, OccGridMapUtil gridMapUtil, ScanCloud scan, out Matrix4x4 covMatrix, int maxIterations)
         {
             covMatrix = Matrix4x4.Identity;
 
-            /*if (drawInterface != null)
+            if (drawInterface != null)
             {
                 drawInterface.SetScale(0.05f);
                 drawInterface.SetColor(0.0f, 1.0f, 0.0f);
@@ -33,23 +33,22 @@ namespace HectorSLAM.Matcher
 
                 Vector3 beginEstimateMap = gridMapUtil.GetMapCoordsPose(beginEstimateWorld);
 
-                DrawScan(beginEstimateMap, gridMapUtil, dataContainer);
+                DrawScan(beginEstimateMap, gridMapUtil, scan);
 
                 drawInterface.SetColor(1.0, 0.0, 0.0);
-            }*/
+            }
 
-            if (dataContainer.Count != 0)
+            if (scan.Points.Count != 0)
             {
                 Vector3 beginEstimateMap = gridMapUtil.GetMapCoordsPose(beginEstimateWorld);
                 Vector3 estimate = beginEstimateMap;
 
-                EstimateTransformationLogLh(ref estimate, gridMapUtil, dataContainer);
+                EstimateTransformationLogLh(ref estimate, gridMapUtil, scan);
 
                 for (int i = 0; i < maxIterations; ++i)
                 {
-                    EstimateTransformationLogLh(ref estimate, gridMapUtil, dataContainer);
+                    EstimateTransformationLogLh(ref estimate, gridMapUtil, scan);
 
-                    /*
                     if (drawInterface != null)
                     {
                         float invNumIterf = 1.0f / maxIterations;
@@ -60,16 +59,16 @@ namespace HectorSLAM.Matcher
                     if (debugInterface != null)
                     {
                         debugInterface.AddHessianMatrix(H);
-                    }*/
+                    }
                 }
 
-                /*
                 if (drawInterface != null)
                 {
                     drawInterface.SetColor(0.0, 0.0, 1.0);
-                    DrawScan(estimate, gridMapUtil, dataContainer);
-                }*/
+                    DrawScan(estimate, gridMapUtil, scan);
+                }
 
+                // Normalize Z rotation
                 estimate.Z = Util.Util.NormalizeAngle(estimate.Z);
                 covMatrix = H;
 
@@ -79,9 +78,9 @@ namespace HectorSLAM.Matcher
             return beginEstimateWorld;
         }
 
-        protected bool EstimateTransformationLogLh(ref Vector3 estimate, OccGridMapUtil gridMapUtil, DataContainer dataPoints)
+        protected bool EstimateTransformationLogLh(ref Vector3 estimate, OccGridMapUtil gridMapUtil, ScanCloud scan)
         {
-            gridMapUtil.GetCompleteHessianDerivs(estimate, dataPoints, out Matrix4x4 H, out Vector3 dTr);
+            gridMapUtil.GetCompleteHessianDerivs(estimate, scan, out Matrix4x4 H, out Vector3 dTr);
 
             if ((H.M11 != 0.0f) && (H.M22 != 0.0f))
             {
@@ -104,7 +103,7 @@ namespace HectorSLAM.Matcher
                     System.Diagnostics.Debug.WriteLine("SearchDir angle change too large");
                 }
 
-                UpdateEstimatedPose(ref estimate, searchDir);
+                estimate += searchDir;
 
                 return true;
             }
@@ -112,33 +111,15 @@ namespace HectorSLAM.Matcher
             return false;
         }
 
-        protected bool Inverse3x3(Matrix4x4 input, out Matrix4x4 output)
-        {
-            //Matrix4x4.i
 
-            float d =
-                input.M11 * (input.M22 * input.M33 - input.M23 * input.M32) -
-                input.M12 * (input.M21 * input.M33 - input.M23 * input.M31) +
-                input.M13 * (input.M21 * input.M32 - input.M22 * input.M31);
-
-            output = new Matrix4x4();
-
-            return false;
-        }
-
-        protected static void UpdateEstimatedPose(ref Vector3 estimate, Vector3 change)
-        {
-            estimate += change;
-        }
-
-        protected void DrawScan(Vector3 pose, OccGridMapUtil gridMapUtil, DataContainer dataContainer)
+        protected void DrawScan(Vector3 pose, OccGridMapUtil gridMapUtil, ScanCloud scan)
         {
             drawInterface.SetScale(0.02);
             var transform = gridMapUtil.GetTransformForState(pose);
 
-            for (int i = 0; i < dataContainer.Count; ++i)
+            foreach (Vector2 scanPoint in scan.Points)
             {
-                drawInterface.DrawPoint(gridMapUtil.GetWorldCoordsPoint(Vector2.Transform(dataContainer[i], transform)));
+                drawInterface.DrawPoint(gridMapUtil.GetWorldCoordsPoint(Vector2.Transform(scanPoint, transform)));
             }
         }
     }

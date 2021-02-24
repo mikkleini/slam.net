@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using BaseSLAM;
-using HectorSLAM.Scan;
 using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
@@ -16,7 +18,8 @@ namespace HectorSLAM.Map
         private readonly GridMapCacheArray cacheMethod;
         private readonly GridMap gridMap;
         private readonly List<Vector3> samplePoints; // TODO Unused, remove it
-        private readonly float[] intensities = new float[4] { 0, 0, 0, 0 };
+        private readonly CancellationTokenSource cts;
+        private readonly HessianJob[] jobs;
 
         /// <summary>
         /// Constructor
@@ -27,6 +30,21 @@ namespace HectorSLAM.Map
             cacheMethod = new GridMapCacheArray(gridMap.Dimensions);
             this.gridMap = gridMap;
             samplePoints = new List<Vector3>();
+
+            cts = new CancellationTokenSource();
+
+            // Create parallel threads to calculate hessian matrix derivatives
+            jobs = new HessianJob[4];
+            for (int i = 0; i < jobs.Length; i++)
+            {
+                jobs[i].Input = new SignalConcurrentQueue<HessianJobInput>();
+                jobs[i].Output = new SignalConcurrentQueue<HessianJobOutput>();
+                jobs[i].Thread = new Thread(new ParameterizedThreadStart(HessianJobLoop))
+                {
+                    Name = $"Hessian #{i + 1}"
+                };
+                jobs[i].Thread.Start(jobs[i]);
+            }
         }
 
         public Vector3 GetWorldCoordsPose(Vector3 mapPose)
@@ -44,8 +62,39 @@ namespace HectorSLAM.Map
             return gridMap.GetWorldCoords(mapPoint);
         }
 
-        public void GetCompleteHessianDerivs(Vector3 pose, DataContainer dataPoints, out Matrix4x4 H, out Vector3 dTr)
+        private struct HessianJob
         {
+            public Thread Thread;
+            public SignalConcurrentQueue<HessianJobInput> Input;
+            public SignalConcurrentQueue<HessianJobOutput> Output;
+        }
+
+        public struct HessianJobInput
+        {
+            public Matrix3x2 Transformation;
+            public float SinRotation;
+            public float CosRotation;
+            public IEnumerable<Vector2> Points;
+        }
+
+        private struct HessianJobOutput
+        {
+            public Matrix4x4 H;
+            public Vector3 dTr;
+        }
+
+        /// <summary>
+        /// Get complete hessian matrix derivatives
+        /// </summary>
+        /// <param name="pose"></param>
+        /// <param name="scan"></param>
+        /// <param name="H"></param>
+        /// <param name="dTr"></param>
+        public void GetCompleteHessianDerivs(Vector3 pose, ScanCloud scan, out Matrix4x4 H, out Vector3 dTr)
+        {
+            H = new Matrix4x4();
+            dTr = Vector3.Zero;
+
             // Transformation of lidar measurements.
             // Translation is in pixels, need to convert it meters first.
             Matrix3x2 transform =
@@ -54,240 +103,124 @@ namespace HectorSLAM.Map
                 Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);
 
             // Do the measurements scaling here, rather than wasting time in the rotDeriv calculation
-            float sinRot = MathF.Sin(pose.Z) / gridMap.Properties.CellLength;
-            float cosRot = MathF.Cos(pose.Z) / gridMap.Properties.CellLength;
+            float sinRot = MathF.Sin(pose.Z) * gridMap.Properties.ScaleToMap;
+            float cosRot = MathF.Cos(pose.Z) * gridMap.Properties.ScaleToMap;
 
-            H = new Matrix4x4
+            // Job chunk size (ceiling calculation)
+            int chunkSize = (scan.Points.Count + jobs.Length - 1) / jobs.Length;
+            
+            // Feed input to hessian jobs
+            for (int i = 0; i < jobs.Length; i++)
             {
-                M44 = 1.0f, // Needed to make matrix inversible
-            };
-
-            dTr = Vector3.Zero;
-
-            foreach (Vector2 currPoint in dataPoints)
-            {
-                Vector2 currPointMap = Vector2.Transform(currPoint, transform);
-                Vector3 transformedPointData = InterpMapValueWithDerivatives(currPointMap);
-
-                float funVal = 1.0f - transformedPointData.X;
-
-                dTr.X += transformedPointData.Y * funVal;
-                dTr.Y += transformedPointData.Z * funVal;
-
-                float rotDeriv = ((-sinRot * currPoint.X - cosRot * currPoint.Y) * transformedPointData.Y +
-                                   (cosRot * currPoint.X - sinRot * currPoint.Y) * transformedPointData.Z);
-
-                dTr.Z += rotDeriv * funVal;
-
-                H.M11 += transformedPointData.Y.Sqr();
-                H.M22 += transformedPointData.Z.Sqr();
-                H.M33 += rotDeriv.Sqr();
-
-                H.M12 += transformedPointData.Y * transformedPointData.Z;
-                H.M13 += transformedPointData.Y * rotDeriv;
-                H.M23 += transformedPointData.Z * rotDeriv;
+                jobs[i].Input.Enqueue(new HessianJobInput()
+                {
+                    Transformation = transform,
+                    SinRotation = sinRot,
+                    CosRotation = cosRot,
+                    Points = scan.Points.Skip(i * chunkSize).Take(chunkSize)
+                });
             }
 
+            // Wait for jobs completion (output data)
+            WaitHandle.WaitAll(jobs.Select(j => j.Output.EnqueuedItemSignal).ToArray());
+
+            // Aggragate jobs results
+            for (int i = 0; i < jobs.Length; i++)
+            {
+                if (jobs[i].Output.TryDequeue(out HessianJobOutput output))
+                {
+                    H += output.H;
+                    dTr += output.dTr;
+                }
+                else
+                {
+                    Debug.WriteLine($"Failed to get hessian job {i} output");
+                }
+            }
+
+            // Symmetry for inversion
             H.M21 = H.M12;
             H.M31 = H.M13;
             H.M32 = H.M23;
+
+            // Make 4x4 matrix inversible
+            H.M44 = 1.0f;
         }
 
-        public Matrix4x4 GetCovarianceForPose(Vector3 mapPose, DataContainer dataPoints)
+        /// <summary>
+        /// Hessian job loop
+        /// </summary>
+        /// <param name="state">Job object</param>
+        public void HessianJobLoop(object state)
         {
-            float deltaTransX = 1.5f;
-            float deltaTransY = 1.5f;
-            float deltaAng = 0.05f;
+            HessianJob job = (HessianJob)state;
+            WaitHandle[] waitHandles = new WaitHandle[] { cts.Token.WaitHandle, job.Input.EnqueuedItemSignal };
 
-            float x = mapPose.X;
-            float y = mapPose.Y;
-            float ang = mapPose.Z;
-
-            Vector3[] sigmaPoints = new Vector3[7]
+            while (!cts.IsCancellationRequested)
             {
-                new Vector3(x + deltaTransX, y, ang),
-                new Vector3(x - deltaTransX, y, ang),
-                new Vector3(x, y + deltaTransY, ang),
-                new Vector3(x, y - deltaTransY, ang),
-                new Vector3(x, y, ang + deltaAng),
-                new Vector3(x, y, ang - deltaAng),
-                mapPose
-            };
+                // Wait for job input
+                switch (WaitHandle.WaitAny(waitHandles))
+                {
+                    // Cancellation ?
+                    case 0:
+                        break;
 
-            float[] likelihoods = new float[7]
-            {
-                GetLikelihoodForState(new Vector3(x + deltaTransX, y, ang), dataPoints),
-                GetLikelihoodForState(new Vector3(x - deltaTransX, y, ang), dataPoints),
-                GetLikelihoodForState(new Vector3(x, y + deltaTransY, ang), dataPoints),
-                GetLikelihoodForState(new Vector3(x, y - deltaTransY, ang), dataPoints),
-                GetLikelihoodForState(new Vector3(x, y, ang + deltaAng), dataPoints),
-                GetLikelihoodForState(new Vector3(x, y, ang - deltaAng), dataPoints),
-                GetLikelihoodForState(new Vector3(x, y, ang), dataPoints)
-            };
-
-            float invLhNormalizer = 1.0f / likelihoods.Sum();
-
-            System.Diagnostics.Debug.WriteLine($"lhs: {likelihoods}");
-
-            Vector3 mean = Vector3.Zero;
-
-            for (int i = 0; i < 7; ++i)
-            {
-                mean += sigmaPoints[i] * likelihoods[i];
+                    // Got input ?
+                    case 1:
+                        if (job.Input.TryDequeue(out HessianJobInput input))
+                        {
+                            PerformCompleteHessianDerivsJob(input, out HessianJobOutput output);
+                            job.Output.Enqueue(output);
+                        }
+                        break;
+                }
             }
-
-            mean *= invLhNormalizer;
-
-            Matrix4x4 covMatrixMap = new Matrix4x4();
-
-            for (int i = 0; i < 7; ++i)
-            {
-                Vector3 sigPointMinusMean = sigmaPoints[i] - mean;
-                Matrix4x4 sp = new Matrix4x4(
-                    sigPointMinusMean.X, sigPointMinusMean.Y, sigPointMinusMean.Z, 0,
-                    0, 0, 0, 0,
-                    0, 0, 0, 0,
-                    0, 0, 0, 0);
-
-                Matrix4x4 spt = Matrix4x4.Transpose(sp);
-                covMatrixMap += Matrix4x4.Multiply(Matrix4x4.Multiply(sp, spt), likelihoods[i] * invLhNormalizer);
-
-                // Original loop:
-                // Eigen::Vector3f sigPointMinusMean(sigmaPoints.block<3, 1>(0, i) -mean);
-                // covMatrixMap += (likelihoods[i] * invLhNormalizer) * (sigPointMinusMean * (sigPointMinusMean.transpose()));
-            }
-
-            return covMatrixMap;
         }
 
-        public Matrix4x4 GetCovMatrixWorldCoords(Matrix4x4 covMatMap)
+        /// <summary>
+        /// Perform actual hessian derivatives job calculation
+        /// </summary>
+        /// <param name="input">Input data</param>
+        /// <param name="output">Output data</param>
+        private void PerformCompleteHessianDerivsJob(HessianJobInput input, out HessianJobOutput output)
         {
-            //std::cout << "\nCovMap:\n" << covMatMap;
+            output.dTr = Vector3.Zero;
+            output.H = new Matrix4x4();
 
-            Matrix4x4 covMatWorld = new Matrix4x4()
+            foreach (Vector2 scanPoint in input.Points)
             {
-                //M44 = 1.0f // Needed to make matrix inversible
-            };
+                Vector2 scanPointMap = Vector2.Transform(scanPoint, input.Transformation);
+                Vector3 transformedPointData = InterpMapValueWithDerivatives(scanPointMap);
 
-            float scaleTrans = gridMap.Properties.CellLength;
-            float scaleTransSq = scaleTrans.Sqr();
+                float funVal = 1.0f - transformedPointData.X;
 
-            covMatWorld.M11 = covMatMap.M11 * scaleTransSq;
-            covMatWorld.M22 = covMatMap.M22 * scaleTransSq;
+                output.dTr.X += transformedPointData.Y * funVal;
+                output.dTr.Y += transformedPointData.Z * funVal;
 
-            covMatWorld.M21 = covMatMap.M21 * scaleTransSq;
-            covMatWorld.M12 = covMatWorld.M21;
+                float rotDeriv = ((-input.SinRotation * scanPoint.X - input.CosRotation * scanPoint.Y) * transformedPointData.Y +
+                                   (input.CosRotation * scanPoint.X - input.SinRotation * scanPoint.Y) * transformedPointData.Z);
 
-            covMatWorld.M31 = covMatMap.M31 * scaleTrans;
-            covMatWorld.M13 = covMatWorld.M31;
+                output.dTr.Z += rotDeriv * funVal;
 
-            covMatWorld.M32 = covMatMap.M32 * scaleTrans;
-            covMatWorld.M23 = covMatWorld.M32;
+                output.H.M11 += transformedPointData.Y.Sqr();
+                output.H.M22 += transformedPointData.Z.Sqr();
+                output.H.M33 += rotDeriv.Sqr();
 
-            covMatWorld.M33 = covMatMap.M33;
-
-            return covMatWorld;
-        }
-
-        public float GetLikelihoodForState(Vector3 state, DataContainer dataPoints)
-        {
-            float resid = GetResidualForState(state, dataPoints);
-
-            return GetLikelihoodForResidual(resid, dataPoints.Count);
-        }
-
-        public static float GetLikelihoodForResidual(float residual, int numDataPoints)
-        {
-            return 1.0f - (residual / (float)numDataPoints);
-        }
-
-        public float GetResidualForState(Vector3 state, DataContainer dataPoints)
-        {
-            int stepSize = 1;
-            float residual = 0.0f;
-
-            var transform = GetTransformForState(state);
-
-            for (int i = 0; i < dataPoints.Count; i += stepSize)
-            {
-                float funval = 1.0f - InterpMapValue(Vector2.Transform(dataPoints[i], transform));
-                residual += funval;
+                output.H.M12 += transformedPointData.Y * transformedPointData.Z;
+                output.H.M13 += transformedPointData.Y * rotDeriv;
+                output.H.M23 += transformedPointData.Z * rotDeriv;
             }
-
-            return residual;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetUnfilteredGridPoint(Point gridCoords)
-        {
-            return gridMap.GetGridProbabilityMap(gridCoords.X + gridCoords.Y * gridMap.Dimensions.X);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetUnfilteredGridPoint(int index)
-        {
-            return gridMap.GetGridProbabilityMap(index);
-        }
-
-        public float InterpMapValue(Vector2 coords)
-        {
-            // Check if coords are within map limits.
-            if (gridMap.Properties.IsPointOutOfMapBounds(coords))
-            {
-                return 0.0f;
-            }
-
-            // map coords are alway positive, floor them by casting to int
-            Point indMin = coords.ToFloorPoint();
-
-            // get factors for bilinear interpolation
-            Vector2 factors = coords - indMin.ToVector2();
-
-            int sizeX = gridMap.Dimensions.X;
-            int index = indMin.Y * sizeX + indMin.X;
-
-            // get grid values for the 4 grid points surrounding the current coords. Check cached data first, if not contained
-            // filter gridPoint with gaussian and store in cache.
-            if (!cacheMethod.ContainsCachedData(index, out intensities[0]))
-            {
-                intensities[0] = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities[0]);
-            }
-
-            ++index;
-
-            if (!cacheMethod.ContainsCachedData(index, out intensities[1]))
-            {
-                intensities[1] = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities[1]);
-            }
-
-            index += sizeX - 1;
-
-            if (!cacheMethod.ContainsCachedData(index, out intensities[2]))
-            {
-                intensities[2] = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities[2]);
-            }
-
-            ++index;
-
-            if (!cacheMethod.ContainsCachedData(index, out intensities[3]))
-            {
-                intensities[3] = GetUnfilteredGridPoint(index);
-                cacheMethod.CacheData(index, intensities[3]);
-            }
-
-            float xFacInv = 1.0f - factors.X;
-            float yFacInv = 1.0f - factors.Y;
-
-            return
-                  ((intensities[0] * xFacInv + intensities[1] * factors.X) * yFacInv) +
-                  ((intensities[2] * xFacInv + intensities[3] * factors.X) * factors.Y);
-        }
-
+        /// <summary>
+        /// ...
+        /// </summary>
+        /// <param name="coords">Map coordinates</param>
+        /// <returns></returns>
         public Vector3 InterpMapValueWithDerivatives(Vector2 coords)
         {
+            float[] intensities = new float[4];
+
             // Check if coords are within map limits.
             if (gridMap.Properties.IsPointOutOfMapBounds(coords))
             {
@@ -307,7 +240,7 @@ namespace HectorSLAM.Map
             // filter gridPoint with gaussian and store in cache.
             if (!cacheMethod.ContainsCachedData(index, out intensities[0]))
             {
-                intensities[0] = GetUnfilteredGridPoint(index);
+                intensities[0] = gridMap.GetGridProbabilityMap(index);
                 cacheMethod.CacheData(index, intensities[0]);
             }
 
@@ -315,7 +248,7 @@ namespace HectorSLAM.Map
 
             if (!cacheMethod.ContainsCachedData(index, out intensities[1]))
             {
-                intensities[1] = GetUnfilteredGridPoint(index);
+                intensities[1] = gridMap.GetGridProbabilityMap(index);
                 cacheMethod.CacheData(index, intensities[1]);
             }
 
@@ -323,7 +256,7 @@ namespace HectorSLAM.Map
 
             if (!cacheMethod.ContainsCachedData(index, out intensities[2]))
             {
-                intensities[2] = GetUnfilteredGridPoint(index);
+                intensities[2] = gridMap.GetGridProbabilityMap(index);
                 cacheMethod.CacheData(index, intensities[2]);
             }
 
@@ -331,7 +264,7 @@ namespace HectorSLAM.Map
 
             if (!cacheMethod.ContainsCachedData(index, out intensities[3]))
             {
-                intensities[3] = GetUnfilteredGridPoint(index);
+                intensities[3] = gridMap.GetGridProbabilityMap(index);
                 cacheMethod.CacheData(index, intensities[3]);
             }
 
@@ -353,6 +286,8 @@ namespace HectorSLAM.Map
 
         public Matrix4x4 GetTransformForState(Vector3 transVector)
         {
+
+
             // return Eigen::Translation2f(transVector[0], transVector[1]) * Eigen::Rotation2Df(transVector[2]);
             return
                 Matrix4x4.CreateTranslation(transVector.X, transVector.Y, 0) *

@@ -27,32 +27,5 @@ namespace HectorSLAM.Util
 
             return a;
         }
-
-        public static bool PoseDifferenceLargerThan(Vector3 pose1, Vector3 pose2, float distanceDiffThresh, float angleDiffThresh)
-        {
-            // Check distance
-            if (Vector2.DistanceSquared(pose1.ToVector2(), pose2.ToVector2()) > distanceDiffThresh.Sqr())
-            {
-                return true;
-            }
-
-            float angleDiff = pose1.Z - pose2.Z;
-
-            if (angleDiff > MathF.PI)
-            {
-                angleDiff -= MathF.PI * 2.0f;
-            }
-            else if (angleDiff < -MathF.PI)
-            {
-                angleDiff += MathF.PI * 2.0f;
-            }
-
-            if (MathF.Abs(angleDiff) > angleDiffThresh)
-            {
-                return true;
-            }
-
-            return false;
-        }
     }
 }

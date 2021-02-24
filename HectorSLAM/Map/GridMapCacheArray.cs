@@ -24,7 +24,7 @@ namespace HectorSLAM.Map
         /// <summary>
         /// The dimensions of the array
         /// </summary>
-        public Point Dimensions { get; init; }
+        public Point Dimensions { get; }
 
         /// <summary>
         /// Constructor

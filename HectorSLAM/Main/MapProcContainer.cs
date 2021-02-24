@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Numerics;
 using System.Text;
+using BaseSLAM;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
-using HectorSLAM.Scan;
 using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
@@ -35,19 +35,19 @@ namespace HectorSLAM.Main
             GridMapUtil.ResetCachedData();
         }
 
-        public Vector3 MatchData(Vector3 beginEstimateWorld, DataContainer dataContainer, out Matrix4x4 covMatrix, int maxIterations)
+        public Vector3 MatchData(Vector3 beginEstimateWorld, ScanCloud scan, out Matrix4x4 covMatrix, int maxIterations)
         {
-            return ScanMatcher.MatchData(beginEstimateWorld, GridMapUtil, dataContainer, out covMatrix, maxIterations);
+            return ScanMatcher.MatchData(beginEstimateWorld, GridMapUtil, scan, out covMatrix, maxIterations);
         }
 
-        public void UpdateByScan(DataContainer dataContainer, Vector3 robotPoseWorld)
+        public void UpdateByScan(ScanCloud scan, Vector3 robotPoseWorld)
         {
             if (MapMutex != null)
             {
                 MapMutex.Lock();
             }
 
-            GridMap.UpdateByScan(dataContainer, robotPoseWorld);
+            GridMap.UpdateByScan(scan, robotPoseWorld);
 
             if (MapMutex != null)
             {
