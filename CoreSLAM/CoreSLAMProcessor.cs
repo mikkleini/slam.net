@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -20,13 +21,18 @@ namespace CoreSLAM
         private const ushort TS_NO_OBSTACLE = 65500;
         private const ushort TS_OBSTACLE = 0;
 
-        // Private variables
+        // Private read only objects
         private readonly Vector3 startPose;
+        private readonly bool[,] noHitMap;
+        private readonly ZigguratGaussianSampler samplerXY;
+        private readonly ZigguratGaussianSampler samplerTheta;
+        private readonly ParallelWorker worker;
+        private readonly Queue<float>[] randomQueuesXY;
+        private readonly Queue<float>[] randomQueuesTheta;
+
+        // Private variables
         private int scanCount;
         private Vector3 lastOdometryPose;
-        private readonly bool[,] noHitMap;
-        private readonly MonteCarloSearchContext[] searchContexts;
-        private readonly CancellationTokenSource cts;
 
         /// <summary>
         /// Physical square map size (length of edge) in meters
@@ -43,6 +49,27 @@ namespace CoreSLAM
         /// </summary>
         public ObstacleMap ObstacleMap { get; }
 
+
+        /// <summary>
+        /// Search range at X and Y coordinates in meters
+        /// </summary>
+        public float SigmaXY { get; }
+
+        /// <summary>
+        /// Search span at Theta orentation in radians
+        /// </summary>
+        public float SigmaTheta { get; }
+
+        /// <summary>
+        /// Number of search iterations per search thread.
+        /// </summary>
+        public int SearchIterationsPerThread { get; }
+
+        /// <summary>
+        /// Number of search threads
+        /// </summary>
+        public int NumSearchThreads { get; }
+
         /// <summary>
         /// Map quality (1 to 255)
         /// DO NOT USE 0 OR 256!
@@ -58,32 +85,13 @@ namespace CoreSLAM
         public float HoleWidth { get; set; } = 0.6f;
 
         /// <summary>
-        /// Pose
-        /// </summary>
-        public Vector3 Pose { get; set; }
-
-        /// <summary>
         /// Threshold of scan count after which start searching position
         /// </summary>
         public int PositionSearchBeginning { get; set; } = 5;
 
         /// <summary>
-        /// Number of search iterations per search thread.
-        /// </summary>
-        public int SearchIterationsPerThread { get; set; } = 1000;
-
-        /// <summary>
-        /// Search range at X and Y coordinates in meters
-        /// </summary>
-        public float SigmaXY { get; set; } = 0.1f;
-
-        /// <summary>
-        /// Search span at Theta orentation in radians
-        /// </summary>
-        public float SigmaTheta { get; set; } = 0.174f; // Default is 10 degrees
-
-        /// <summary>
-        /// Number of hits or no-hits to reach per pixel to mark obstacle map pixel clear or occupied 
+        /// Number of hits or no-hits to reach per pixel to mark obstacle map pixel clear or occupied.
+        /// After changing this, Reset function has to be called!
         /// </summary>
         public sbyte UnmappedObstacleHits { get; set; } = -5;
 
@@ -93,48 +101,62 @@ namespace CoreSLAM
         public sbyte MaxObstacleHits { get; set; } = 10;
 
         /// <summary>
+        /// Pose
+        /// </summary>
+        public Vector3 Pose { get; private set; } = Vector3.Zero;
+
+        /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="physicalMapSize">Physical map size in meters</param>
         /// <param name="holeMapSize">Hole map size in pixels</param>
         /// <param name="obstacleMapSize">Obstacle map size in pixels</param>
         /// <param name="startPose">Start pose</param>
-        /// <param name="numSearchThreads">Number of search threads (0 for no threading)</param>
-        public CoreSLAMProcessor(float physicalMapSize, int holeMapSize, int obstacleMapSize, Vector3 startPose, int numSearchThreads = 0)
+        /// <param name="sigmaXY">Sigma XY in meters</param>
+        /// <param name="sigmaTheta">Sigma theta in radians</param>
+        /// <param name="iterationsPerThread">Search iterations per thread</param>
+        /// <param name="numSearchThreads">Number of search threads (1 or less for no threading)</param>
+        public CoreSLAMProcessor(float physicalMapSize, int holeMapSize, int obstacleMapSize, Vector3 startPose,
+            float sigmaXY, float sigmaTheta, int iterationsPerThread, int numSearchThreads)
         {
+            // Set properties
             PhysicalMapSize = physicalMapSize;
+            this.startPose = startPose;
+            SigmaXY = sigmaXY;
+            SigmaTheta = sigmaTheta;
+            SearchIterationsPerThread = iterationsPerThread;
+            NumSearchThreads = numSearchThreads;
+
+            // Create maps
             HoleMap = new HoleMap(holeMapSize, physicalMapSize);
             ObstacleMap = new ObstacleMap(obstacleMapSize, physicalMapSize);
             noHitMap = new bool[obstacleMapSize, obstacleMapSize];
-            this.startPose = startPose;
 
+            // Use 3rd party library for fast normal distribution random number generator
+            samplerXY = new ZigguratGaussianSampler(0.0f, sigmaXY);
+            samplerTheta = new ZigguratGaussianSampler(0.0f, sigmaTheta);
+
+            // Reset everything
             Reset();
 
-            // Cancellation token
-            cts = new CancellationTokenSource();
-
-            // No thread mode ?
+            // Threaded mode or not ?
             if (numSearchThreads <= 0)
             {
-                searchContexts = null;
+                worker = null;
             }
             else
             {
-                // Create parallel search threads
-                searchContexts = new MonteCarloSearchContext[numSearchThreads];
-                for (int i = 0; i < numSearchThreads; i++)
-                {
-                    searchContexts[i] = new MonteCarloSearchContext()
-                    {
-                        SearchThread = new Thread(new ParameterizedThreadStart(MonteCarloSearchJob))
-                        {
-                            Name = $"CoreSLAM #{i + 1}"
-                        },
-                        InputQueue = new SignalConcurrentQueue<MonteCarloSearchInput>(),
-                        OutputQueue = new SignalConcurrentQueue<MonteCarloSearchResult>()
-                    };
+                worker = new ParallelWorker(NumSearchThreads, "CoreSLAM search");
+                randomQueuesXY = new Queue<float>[NumSearchThreads];
+                randomQueuesTheta = new Queue<float>[NumSearchThreads];
 
-                    searchContexts[i].SearchThread.Start(searchContexts[i]);
+                // Create random number queues and fill them up
+                for (int i = 0; i < NumSearchThreads; i++)
+                {
+                    randomQueuesXY[i] = new Queue<float>();
+                    randomQueuesTheta[i] = new Queue<float>();
+
+                    FillRandomQueues(i);
                 }
             }
         }
@@ -571,64 +593,38 @@ namespace CoreSLAM
         }
 
         /// <summary>
-        /// Search for best robot pose in monto-carlo method
+        /// Fill random number queues which are used in parallel search.
         /// </summary>
-        /// <param name="cloud">Scan points cloud</param>
-        /// <param name="startPose">Search start position</param>
-        /// <param name="sigmaXY">XY coordinates standard deviation</param>
-        /// <param name="sigmaTheta">Theta standard deviation</param>
-        /// <param name="iterations">Number of search iterations</param>
-        /// <param name="distance">Best pose distance value (the lower the better)</param>
-        /// <returns>Best found pose</returns>
-        private Vector3 MonteCarloSearch(ScanCloud cloud, Vector3 startPose, out int distance)
+        /// <param name="index">Thread index</param>
+        private void FillRandomQueues(int index)
         {
-            // Use 3rd party library for fast normal distribution random number generator
-            var samplerXY = new ZigguratGaussianSampler(0.0f, SigmaXY);
-            var samplerTheta = new ZigguratGaussianSampler(0.0f, SigmaTheta);
-
-            Vector3 bestPose = startPose;
-            int currentDistance = CalculateDistance(cloud, startPose);
-            int bestDistance = currentDistance;
-
-            for (int counter = 0; counter < SearchIterationsPerThread; counter++)
+            // Make sure there are enough random numbers in queue
+            // XY queue has to be twice as large as theta queue
+            while (randomQueuesXY[index].Count < SearchIterationsPerThread * 2)
             {
-                // Create new random position
-                Vector3 currentpose = new Vector3()
-                {
-                    X = startPose.X + samplerXY.Sample(),
-                    Y = startPose.Y + samplerXY.Sample(),
-                    Z = startPose.Z + samplerTheta.Sample()
-                };
-
-                // Calculate distance at that position
-                currentDistance = CalculateDistance(cloud, currentpose);
-
-                // Is it the best ?
-                if (currentDistance < bestDistance)
-                {
-                    bestDistance = currentDistance;
-                    bestPose = currentpose;
-                }
+                randomQueuesXY[index].Enqueue(samplerXY.Sample());
             }
 
-            distance = bestDistance;
-            return bestPose;
+            while (randomQueuesTheta[index].Count < SearchIterationsPerThread)
+            {
+                randomQueuesTheta[index].Enqueue(samplerTheta.Sample());
+            }
         }
 
         /// <summary>
         /// Search for best robot pose in monto-carlo method
         /// </summary>
         /// <param name="cloud">Scan points cloud</param>
-        /// <param name="startPose">Search start position</param>
+        /// <param name="searchPose">Search start position</param>
         /// <param name="randomXY">Queue of random XY standard deviation numbers</param>
         /// <param name="randomTheta">Queue of random Theta standard deviation numbers</param>
         /// <param name="iterations">Number of search iterations</param>
         /// <param name="distance">Best pose distance value (the lower the better)</param>
         /// <returns>Best found pose</returns>
-        private Vector3 MonteCarloSearch(ScanCloud cloud, Vector3 startPose, Queue<float> randomXY, Queue<float> randomTheta, int iterations, out int distance)
+        private Vector3 MonteCarloSearch(ScanCloud cloud, Vector3 searchPose, Func<float> randomXY, Func<float> randomTheta, int iterations, out int distance)
         {
-            Vector3 bestPose = startPose;
-            int currentDistance = CalculateDistance(cloud, startPose);
+            Vector3 bestPose = searchPose;
+            int currentDistance = CalculateDistance(cloud, searchPose);
             int bestDistance = currentDistance;
 
             for (int counter = 0; counter < iterations; counter++)
@@ -636,9 +632,9 @@ namespace CoreSLAM
                 // Create new random position
                 Vector3 currentpose = new Vector3()
                 {
-                    X = startPose.X + randomXY.Dequeue(),
-                    Y = startPose.Y + randomXY.Dequeue(),
-                    Z = startPose.Z + randomTheta.Dequeue()
+                    X = searchPose.X + randomXY(),
+                    Y = searchPose.Y + randomXY(),
+                    Z = searchPose.Z + randomTheta()
                 };
 
                 // Calculate distance at that position
@@ -657,101 +653,54 @@ namespace CoreSLAM
         }
 
         /// <summary>
-        /// Monte-carlo search job
+        /// Search for best robot pose in monto-carlo method
         /// </summary>
-        /// <param name="state">Context</param>
-        private void MonteCarloSearchJob(object state)
+        /// <param name="cloud">Scan points cloud</param>
+        /// <param name="searchPose">Search start position</param>
+        /// <param name="distance">Best pose distance value (the lower the better)</param>
+        /// <returns>Best found pose</returns>
+        private Vector3 SingleMonteCarloSearch(ScanCloud cloud, Vector3 searchPose, out int distance)
         {
-            MonteCarloSearchContext context = (MonteCarloSearchContext)state;
-            WaitHandle[] waitHandles = new WaitHandle[] { cts.Token.WaitHandle, context.InputQueue.EnqueuedItemSignal };
-            Queue<float> randomXY = new Queue<float>();
-            Queue<float> randomTheta = new Queue<float>();
-
-            // Use 3rd party library for fast normal distribution random number generator
-            ZigguratGaussianSampler samplerXY = new ZigguratGaussianSampler(0.0f, SigmaXY);
-            ZigguratGaussianSampler samplerTheta = new ZigguratGaussianSampler(0.0f, SigmaTheta);
-
-            // Working loop
-            while (!cts.IsCancellationRequested)
-            {
-                // Make sure there are enough random numbers in queue
-                // XY queue has to be twice as large as theta queue
-                while (randomXY.Count < SearchIterationsPerThread * 2)
-                {
-                    randomXY.Enqueue(samplerXY.Sample());
-                }
-
-                while (randomTheta.Count < SearchIterationsPerThread)
-                {
-                    randomTheta.Enqueue(samplerTheta.Sample());
-                }
-
-                // Wait for job input
-                switch (WaitHandle.WaitAny(waitHandles))
-                {
-                    // Cancellation ?
-                    case 0:
-                        break;
-
-                    // Got input ?
-                    case 1:
-                        if (context.InputQueue.TryDequeue(out MonteCarloSearchInput input))
-                        {
-                            // Find best position
-                            Vector3 pose = MonteCarloSearch(input.cloud, input.startPose, randomXY, randomTheta, SearchIterationsPerThread, out int distance);
-
-                            // Put the result to output queue
-                            context.OutputQueue.Enqueue(new MonteCarloSearchResult()
-                            {
-                                pose = pose,
-                                distance = distance
-                            });
-                        }
-                        break;
-                }
-            }
+            return MonteCarloSearch(cloud, searchPose, () => samplerXY.Sample(), () => samplerTheta.Sample(), SearchIterationsPerThread, out distance);
         }
 
         /// <summary>
         /// Search for best robot position in monto-carlo method
         /// </summary>
         /// <param name="cloud">Scan points cloud</param>
-        /// <param name="startPose">Search start position</param>
+        /// <param name="searchPose">Search start position</param>
         /// <param name="distance">Best pose distance value (the lower the better)</param>
         /// <returns>Best found pose</returns>
-        private Vector3 ParallelMonteCarloSearch(ScanCloud cloud, Vector3 startPose, out int distance)
+        private Vector3 ParallelMonteCarloSearch(ScanCloud cloud, Vector3 searchPose, out int distance)
         {
-            // Feed input to jobs
-            for (int i = 0; i < searchContexts.Length; i++)
+            int[] distances = new int[NumSearchThreads];
+            Vector3[] poses = new Vector3[NumSearchThreads];
+
+            // Let all worker threads find best position
+            worker.Work(index =>
             {
-                // Just in case reset output queues and signals
-                searchContexts[i].OutputQueue.Clear();
-                searchContexts[i].OutputQueue.EnqueuedItemSignal.Reset();
+                poses[index] = MonteCarloSearch(
+                    cloud,
+                    searchPose,
+                    () => randomQueuesXY[index].Dequeue(),
+                    () => randomQueuesTheta[index].Dequeue(),
+                    SearchIterationsPerThread,
+                    out distances[index]);
+            }, true);
 
-                // Add input data to jobs
-                searchContexts[i].InputQueue.Enqueue(new MonteCarloSearchInput()
-                {
-                    cloud = cloud,
-                    startPose = startPose
-                });
-            }
+            // Queue a task to fill random number queues for next search loop
+            worker.Work(FillRandomQueues, false);
 
-            // Wait until all jobs are finished
-            WaitHandle.WaitAll(searchContexts.Select(ctx => ctx.OutputQueue.EnqueuedItemSignal).ToArray());
-
-            // Find best pose of out all results
+            // Find best pose of out all worker results
             int bestDistance = int.MaxValue;
-            Vector3 bestPose = startPose;
+            Vector3 bestPose = searchPose;
 
-            for (int i = 0; i < searchContexts.Length; i++)
+            for (int i = 0; i < NumSearchThreads; i++)
             {
-                if (searchContexts[i].OutputQueue.TryDequeue(out MonteCarloSearchResult result))
+                if (distances[i] < bestDistance)
                 {
-                    if (result.distance < bestDistance)
-                    {
-                        bestDistance = result.distance;
-                        bestPose = result.pose;
-                    }
+                    bestDistance = distances[i];
+                    bestPose = poses[i];
                 }
             }
 
@@ -778,13 +727,13 @@ namespace CoreSLAM
             {
                 Vector3 searchPose = Pose + (odoPose - lastOdometryPose);
 
-                if (searchContexts != null)
+                if (worker != null)
                 {
                     newPose = ParallelMonteCarloSearch(cloud, searchPose, out int _);
                 }
                 else
                 {
-                    newPose = MonteCarloSearch(cloud, searchPose, out int _);
+                    newPose = SingleMonteCarloSearch(cloud, searchPose, out int _);
                 }
             }
             else
@@ -818,15 +767,7 @@ namespace CoreSLAM
         {
             if (disposing)
             {
-                cts.Cancel();
-
-                if (searchContexts != null)
-                {
-                    foreach (MonteCarloSearchContext ctx in searchContexts)
-                    {
-                        ctx.SearchThread.Join();
-                    }
-                }
+                worker.Dispose();
             }
         }
     }
