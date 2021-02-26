@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 
 namespace HectorSLAM.Map
 {
-    public class GridMapBase
+    public class GridMap
     {
         protected readonly LogOddsCell[] mapArray; // Map representation used with plain pointer array.
         private readonly Matrix3x2 worldTmap;      // Homogenous transform from map to world coordinates.
@@ -31,7 +31,7 @@ namespace HectorSLAM.Map
         /// <param name="mapResolution">Map resolution in meters per pixel</param>
         /// <param name="size">Map size in pixels</param>
         /// <param name="offset">Offset if meters</param>
-        public GridMapBase(float mapResolution, Point size, Vector2 offset)
+        public GridMap(float mapResolution, Point size, Vector2 offset)
         {
             Properties = new MapProperties(mapResolution, size, offset);
 

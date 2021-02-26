@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Numerics;
@@ -37,11 +38,20 @@ namespace HectorSLAM.Matcher
         public Vector3 MatchData(MapRepMultiMap multiMap, ScanCloud scan, Vector3 hintPose)
         {
             Vector3 estimate = hintPose;
+            //Debug.WriteLine($"Match hint pose: {hintPose}");
 
             // Start matching from coarsest map
             for (int index = multiMap.Maps.Length - 1; index >= 0; index--)
             {
-                estimate = MatchData(multiMap.Maps[index], scan, estimate, (index == 0 ? 5 : 3));
+                estimate = MatchData(multiMap.Maps[index], scan, estimate);
+
+                float dist = Vector2.Distance(estimate.ToVector2(), hintPose.ToVector2());
+                if (dist > 1.0f)
+                {
+                    Debug.WriteLine($"  Layer {index} estimate diff {dist:f2} m from {hintPose} to {estimate}");
+
+                    //Debug.WriteLine($"  Layer {index} estimate: {estimate}");
+                }
             }
 
             return estimate;
@@ -55,13 +65,13 @@ namespace HectorSLAM.Matcher
         /// <param name="hintPose">Estimation hint pose in world coordinates (meters)</param>
         /// <param name="numIterations">Number of estimate iterations to do</param>
         /// <returns>Best position estimate in world coordinates (meters)</returns>
-        public Vector3 MatchData(OccGridMapBase gridMap, ScanCloud scan, Vector3 hintPose, int numIterations)
+        public Vector3 MatchData(OccGridMap gridMap, ScanCloud scan, Vector3 hintPose)
         {
             if (scan.Points.Count > 0)
             {
                 Vector3 estimate = gridMap.GetMapCoordsPose(hintPose);
 
-                for (int i = 0; i <= numIterations; i++)
+                for (int i = 0; i < gridMap.EstimateIterations; i++)
                 {
                     EstimateTransformationLogLh(gridMap, scan, ref estimate);
                 }
@@ -84,7 +94,7 @@ namespace HectorSLAM.Matcher
         /// <param name="scan">Scanned points</param>
         /// <param name="estimate">Estimate position</param>
         /// <returns>true if estimation was madde, false if failed</returns>
-        protected bool EstimateTransformationLogLh(OccGridMapBase gridMap, ScanCloud scan, ref Vector3 estimate)
+        protected bool EstimateTransformationLogLh(OccGridMap gridMap, ScanCloud scan, ref Vector3 estimate)
         {
             GetCompleteHessianDerivs(gridMap, scan, estimate, out Matrix4x4 H, out Vector3 dTr);
 
@@ -125,7 +135,7 @@ namespace HectorSLAM.Matcher
         /// <param name="pose">Pose at which to calculate</param>
         /// <param name="H"></param>
         /// <param name="dTr"></param>
-        protected void GetCompleteHessianDerivs(OccGridMapBase gridMap, ScanCloud scan, Vector3 pose, out Matrix4x4 H, out Vector3 dTr)
+        protected void GetCompleteHessianDerivs(OccGridMap gridMap, ScanCloud scan, Vector3 pose, out Matrix4x4 H, out Vector3 dTr)
         {
             // Transformation of lidar measurements.
             // Translation is in pixels, need to convert it meters first.
@@ -201,7 +211,7 @@ namespace HectorSLAM.Matcher
         /// </summary>
         /// <param name="coords">Map coordinates</param>
         /// <returns></returns>
-        protected static Vector3 InterpMapValueWithDerivatives(OccGridMapBase gridMap, Vector2 coords)
+        protected static Vector3 InterpMapValueWithDerivatives(OccGridMap gridMap, Vector2 coords)
         {
             float[] intensities = new float[4];
 

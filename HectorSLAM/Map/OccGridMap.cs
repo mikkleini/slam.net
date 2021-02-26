@@ -9,7 +9,7 @@ using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
 {
-    public class OccGridMapBase : GridMapBase
+    public class OccGridMap : GridMap
     {
         /// <summary>
         /// Array used for caching data.
@@ -33,7 +33,7 @@ namespace HectorSLAM.Map
         /// <param name="mapResolution">Map resolution in meters per pixel</param>
         /// <param name="size">Map size in pixels</param>
         /// <param name="offset">Offset if meters</param>
-        public OccGridMapBase(float mapResolution, Point size, Vector2 offset)
+        public OccGridMap(float mapResolution, Point size, Vector2 offset)
             : base(mapResolution, size, offset)
         {
             // Create cache array
@@ -48,6 +48,11 @@ namespace HectorSLAM.Map
             logOddsFree = ProbToLogOdds(oddsFree);
             logOddsOccupied = ProbToLogOdds(oddsOccupied);
         }
+
+        /// <summary>
+        /// Estimates iterations per match.
+        /// </summary>
+        public int EstimateIterations { get; set; } = 4;
 
         /// <summary>
         /// Cell "free" update factor

@@ -29,7 +29,7 @@ namespace HectorSLAM.Main
         /// <summary>
         /// Grid maps.
         /// </summary>
-        public OccGridMapBase[] Maps { get; }
+        public OccGridMap[] Maps { get; }
 
         /// <summary>
         /// Constructor
@@ -46,16 +46,19 @@ namespace HectorSLAM.Main
             };
 
             // Create map
-            Maps = new OccGridMapBase[numDepth];
+            Maps = new OccGridMap[numDepth];
             for (int i = 0; i < numDepth; ++i)
             {
                 Debug.WriteLine($"HectorSLAM map level #{i} resolution: {mapResolution} m/pix, size: {mapSize}");
-                Maps[i] = new OccGridMapBase(mapResolution, mapSize, startCoords);
+                Maps[i] = new OccGridMap(mapResolution, mapSize, startCoords);
 
                 // Decrease map accuracy - next level is half the pixel size of previous level
                 mapSize = new Point(mapSize.X / 2, mapSize.Y / 2);
                 mapResolution *= 2.0f;
             }
+
+            // Most estimate loops on finest layer
+            Maps[0].EstimateIterations = 5;
         }
 
         /// <summary>
