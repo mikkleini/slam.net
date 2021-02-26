@@ -70,11 +70,17 @@ namespace Simulation
             holeMapBitmap = new WriteableBitmap(coreSlam.HoleMap.Size, coreSlam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
 
             // Important tip: the robot movement speed cannot be greater than a coarsest map pixel per scan.
-            hectorSlam = new HectorSLAMProcessor(40.0f / 400, new System.Drawing.Point(400, 400), startPos.ToVector3(), 5, 4)
+            hectorSlam = new HectorSLAMProcessor(40.0f / 400, new System.Drawing.Point(400, 400), startPos.ToVector3(), 4, 4)
             {
                 MinDistanceDiffForMapUpdate = 0.4f,
-                MinAngleDiffForMapUpdate = 0.15f
+                MinAngleDiffForMapUpdate = MathEx.DegToRad(8)
             };
+
+            // Set estimate iteransions counts for each map layer
+            hectorSlam.MapRep.Maps[0].EstimateIterations = 6;
+            hectorSlam.MapRep.Maps[1].EstimateIterations = 4;
+            hectorSlam.MapRep.Maps[2].EstimateIterations = 4;
+            hectorSlam.MapRep.Maps[3].EstimateIterations = 4;
 
             // Create field
             field.CreateDefaultField(30.0f, new Vector2(5.0f, 5.0f));
@@ -129,6 +135,8 @@ namespace Simulation
                     coreSlam.Reset();
                     hectorSlam.Reset();
                     lidarPos = startPos;
+                    loops = 0;
+
                     doReset = false;
                 }
 
@@ -156,8 +164,10 @@ namespace Simulation
                     }
                 }
 
-                hectorSlam.Update(scanCloud, hectorSlam.LastScanMatchPose, loops < 10);
-                Debug.WriteLine($"HectorSLAM match time: {hectorSlam.MatchTiming:f2}, update time: {hectorSlam.UpdateTiming:f2}");
+                if (hectorSlam.Update(scanCloud, hectorSlam.LastScanMatchPose, loops < 10))
+                {
+                    Debug.WriteLine($"HectorSLAM match time: {hectorSlam.MatchTiming:f2}, update time: {hectorSlam.UpdateTiming:f2}");
+                }
 
                 // Ensure periodicity
                 Thread.Sleep((int)Math.Max(0, (long)scanPeriod - sw.ElapsedMilliseconds));

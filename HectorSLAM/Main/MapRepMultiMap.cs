@@ -56,9 +56,6 @@ namespace HectorSLAM.Main
                 mapSize = new Point(mapSize.X / 2, mapSize.Y / 2);
                 mapResolution *= 2.0f;
             }
-
-            // Most estimate loops on finest layer
-            Maps[0].EstimateIterations = 5;
         }
 
         /// <summary>

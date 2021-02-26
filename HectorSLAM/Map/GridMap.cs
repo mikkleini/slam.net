@@ -36,9 +36,8 @@ namespace HectorSLAM.Map
             Properties = new MapProperties(mapResolution, size, offset);
 
             // Construct map array
-            int length = Dimensions.X * Dimensions.Y;
-            mapArray = new LogOddsCell[length];
-            for (int i = 0; i < length; ++i)
+            mapArray = new LogOddsCell[Dimensions.X * Dimensions.Y];
+            for (int i = 0; i < mapArray.Length; ++i)
             {
                 mapArray[i].Reset();
             }
@@ -55,9 +54,12 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Reset map
         /// </summary>
-        public void Reset()
+        public virtual void Reset()
         {
-            mapArray.ForEach(i => i.Reset());
+            for (int i = 0; i < mapArray.Length; ++i)
+            {
+                mapArray[i].Reset();
+            }
         }
 
         /// <summary>

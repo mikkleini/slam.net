@@ -25,7 +25,7 @@ namespace HectorSLAM.Matcher
         /// <param name="numThreads">Number of calculation threads to use</param>
         public ScanMatcher(int numThreads)
         {
-            worker = new ParallelWorker(numThreads, "HectorSLAM calc");
+            worker = new ParallelWorker(numThreads, "HectorSLAM estimator");
         }
 
         /// <summary>
@@ -38,19 +38,17 @@ namespace HectorSLAM.Matcher
         public Vector3 MatchData(MapRepMultiMap multiMap, ScanCloud scan, Vector3 hintPose)
         {
             Vector3 estimate = hintPose;
-            //Debug.WriteLine($"Match hint pose: {hintPose}");
 
             // Start matching from coarsest map
             for (int index = multiMap.Maps.Length - 1; index >= 0; index--)
             {
                 estimate = MatchData(multiMap.Maps[index], scan, estimate);
 
-                float dist = Vector2.Distance(estimate.ToVector2(), hintPose.ToVector2());
-                if (dist > 1.0f)
+                // Report large estimate jumps
+                float distSqr = Vector2.DistanceSquared(estimate.ToVector2(), hintPose.ToVector2());
+                if (distSqr > 1.0f * 1.0f)
                 {
-                    Debug.WriteLine($"  Layer {index} estimate diff {dist:f2} m from {hintPose} to {estimate}");
-
-                    //Debug.WriteLine($"  Layer {index} estimate: {estimate}");
+                    Debug.WriteLine($"  Layer {index} estimate diff {Math.Sqrt(distSqr):f2} m from {hintPose} to {estimate}");
                 }
             }
 

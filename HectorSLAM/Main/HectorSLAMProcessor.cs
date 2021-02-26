@@ -13,6 +13,7 @@ namespace HectorSLAM.Main
 {
     public class HectorSLAMProcessor : IDisposable
     {
+        private readonly Vector3 startPose;
         private readonly ScanMatcher scanMatcher;
 
         /// <summary>
@@ -23,7 +24,7 @@ namespace HectorSLAM.Main
         /// <summary>
         /// Last map updatep ose
         /// </summary>
-        public Vector3 LastMapUpdatePose { get; private set; } = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        public Vector3 LastMapUpdatePose { get; private set; }
 
         /// <summary>
         /// Last scan match pose
@@ -62,9 +63,11 @@ namespace HectorSLAM.Main
         {
             MapRep = new MapRepMultiMap(mapResolution, mapSize, numDepth, Vector2.Zero);
             scanMatcher = new ScanMatcher(numThreads);
+            this.startPose = startPose;
 
             // Set initial poses
             LastScanMatchPose = startPose;
+            LastMapUpdatePose = new Vector3(float.MinValue, float.MinValue, float.MinValue);
         }
 
         /// <summary>
@@ -121,6 +124,10 @@ namespace HectorSLAM.Main
         public void Reset()
         {
             MapRep.Reset();
+
+            // Set initial poses
+            LastScanMatchPose = startPose;
+            LastMapUpdatePose = new Vector3(float.MinValue, float.MinValue, float.MinValue);
         }
 
         /// <summary>

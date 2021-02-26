@@ -14,7 +14,7 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Array used for caching data.
         /// </summary>
-        private readonly CachedMapElement[] array = null;
+        private readonly CachedMapElement[] cacheArray = null;
 
         // Variables
         private int currCacheIndex = 0;
@@ -37,11 +37,10 @@ namespace HectorSLAM.Map
             : base(mapResolution, size, offset)
         {
             // Create cache array
-            int length = size.X * size.Y;
-            array = new CachedMapElement[length];
-            for (int i = 0; i < length; ++i)
+            cacheArray = new CachedMapElement[size.X * size.Y];
+            for (int i = 0; i < cacheArray.Length; ++i)
             {
-                array[i].index = -1;
+                cacheArray[i].Index = -1;
             }
 
             // Set logs
@@ -52,7 +51,7 @@ namespace HectorSLAM.Map
         /// <summary>
         /// Estimates iterations per match.
         /// </summary>
-        public int EstimateIterations { get; set; } = 4;
+        public int EstimateIterations { get; set; } = 3;
 
         /// <summary>
         /// Cell "free" update factor
@@ -98,14 +97,14 @@ namespace HectorSLAM.Map
         /// <returns>Probability </returns>
         public float GetCachedProbability(int index)
         {
-            if (array[index].index != currCacheIndex)
+            if (cacheArray[index].Index != currCacheIndex)
             {
                 float odds = MathF.Exp(mapArray[index].Value);
-                array[index].value = odds / (odds + 1.0f);
-                array[index].index = currCacheIndex;
+                cacheArray[index].Value = odds / (odds + 1.0f);
+                cacheArray[index].Index = currCacheIndex;
             }
 
-            return array[index].value;
+            return cacheArray[index].Value;
         }
 
         /// <summary>
@@ -238,6 +237,19 @@ namespace HectorSLAM.Map
 
                 BresenhamCellFree(offset);
             }
+        }
+
+        /// <summary>
+        /// Reset map
+        /// </summary>
+        public override void Reset()
+        {
+            base.Reset();
+
+            currCacheIndex = 0;
+            currUpdateIndex = 0;
+            currMarkOccIndex = -1;
+            currMarkFreeIndex = -1;
         }
     }
 }

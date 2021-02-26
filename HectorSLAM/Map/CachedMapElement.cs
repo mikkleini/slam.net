@@ -9,7 +9,14 @@ namespace HectorSLAM.Map
     /// </summary>
     public struct CachedMapElement
     {
-        public float value;
-        public int index;
+        /// <summary>
+        /// Probability
+        /// </summary>
+        public float Value;
+
+        /// <summary>
+        /// Cache index
+        /// </summary>
+        public int Index;
     }
 }
