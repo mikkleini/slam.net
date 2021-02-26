@@ -9,12 +9,11 @@ using System.Runtime.CompilerServices;
 
 namespace HectorSLAM.Map
 {
-    public class GridMapBase<T> where T : ICell
+    public class GridMapBase
     {
-        protected readonly T[] mapArray;          // Map representation used with plain pointer array.
-        private readonly Matrix3x2 worldTmap;     // Homogenous transform from map to world coordinates.
-        private readonly Matrix3x2 mapTworld;     // Homogenous transform from world to map coordinates.
-        private int lastUpdateIndex = -1;
+        protected readonly LogOddsCell[] mapArray; // Map representation used with plain pointer array.
+        private readonly Matrix3x2 worldTmap;      // Homogenous transform from map to world coordinates.
+        private readonly Matrix3x2 mapTworld;      // Homogenous transform from world to map coordinates.
 
         /// <summary>
         /// Map properties
@@ -36,17 +35,16 @@ namespace HectorSLAM.Map
         {
             Properties = new MapProperties(mapResolution, size, offset);
 
-            // Construct map rray
+            // Construct map array
             int length = Dimensions.X * Dimensions.Y;
-            mapArray = new T[length];
-
+            mapArray = new LogOddsCell[length];
             for (int i = 0; i < length; ++i)
             {
-                mapArray[i] = (T)Activator.CreateInstance(typeof(T));
                 mapArray[i].Reset();
             }
 
             // Construct transformation matrix
+            // TODO Not quite sure if offset is needed
             mapTworld = Matrix3x2.CreateScale(Properties.ScaleToMap) * Matrix3x2.CreateTranslation(Properties.Offset.X, Properties.Offset.Y);
             if (!Matrix3x2.Invert(mapTworld, out worldTmap))
             {
@@ -59,14 +57,6 @@ namespace HectorSLAM.Map
         /// </summary>
         public void Reset()
         {
-            Clear();
-        }
-
-        /// <summary>
-        /// Resets the grid cell values by using the resetGridCell() function.
-        /// </summary>
-        public void Clear()
-        {
             mapArray.ForEach(i => i.Reset());
         }
 
@@ -77,7 +67,7 @@ namespace HectorSLAM.Map
         /// <param name="y">Y</param>
         /// <returns>Cell</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T GetCell(int x, int y)
+        public LogOddsCell GetCell(int x, int y)
         {
             return mapArray[y * Dimensions.X + x];
         }
@@ -88,30 +78,16 @@ namespace HectorSLAM.Map
         /// <param name="index">Arry index</param>
         /// <returns>Cell</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T GetCell(int index)
+        public LogOddsCell GetCell(int index)
         {
             return mapArray[index];
         }
 
-        /**
-         * Returns the world coordinates for the given map coords.
-         */
-        public Vector2 GetWorldCoords(Vector2 mapCoords)
-        {
-            return Vector2.Transform(mapCoords, worldTmap);
-        }
-
-        /**
-         * Returns the map coordinates for the given world coords.
-         */
-        public Vector2 GetMapCoords(Vector2 worldCoords)
-        {
-            return Vector2.Transform(worldCoords, mapTworld);
-        }
-
-        /**
-         * Returns the world pose for the given map pose.
-         */
+        /// <summary>
+        /// Returns the world pose for the given map pose.
+        /// </summary>
+        /// <param name="mapPose">Map pose (X and Y in pixels, Z in radians)</param>
+        /// <returns>World pose (X and Y in meters, Z in radians)</returns>
         public Vector3 GetWorldCoordsPose(Vector3 mapPose)
         {
             Vector2 worldCoords = Vector2.Transform(mapPose.ToVector2(), worldTmap);
@@ -127,11 +103,6 @@ namespace HectorSLAM.Map
         {
             Vector2 mapCoords = Vector2.Transform(worldPose.ToVector2(), mapTworld);
             return new Vector3(mapCoords.X, mapCoords.Y, worldPose.Z);
-        }
-
-        protected void SetUpdated()
-        {
-            lastUpdateIndex++;
         }
 
         /// <summary>

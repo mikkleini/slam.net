@@ -14,118 +14,67 @@ using System.Diagnostics;
 
 namespace HectorSLAM.Main
 {
-    public class MapRepMultiMap : IMapRepresentation
+    /// <summary>
+    /// Multi-level map
+    /// </summary>
+    public class MapRepMultiMap
     {
-        private readonly MapProcContainer[] mapContainers;
         private readonly ParallelOptions parallelOptions;
-
-        public float ScaleToMap => mapContainers[0].GridMap.Properties.ScaleToMap;
 
         /// <summary>
         /// Number of map levels
         /// </summary>
-        public int NumLevels => mapContainers.Length;
+        public int NumLevels => Maps.Length;
+        
+        /// <summary>
+        /// Grid maps.
+        /// </summary>
+        public OccGridMapBase[] Maps { get; }
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="mapResolution">Meters per pixel</param>
-        /// <param name="mapSizeX">Size X in pixels</param>
-        /// <param name="mapSizeY">Size Y in pixels</param>
+        /// <param name="mapSize">Map size pixels</param>
         /// <param name="numDepth">Number of map levels</param>
         /// <param name="startCoords">Start coordinates as fraction of whole map size</param>
-        /// <param name="drawInterface"></param>
-        /// <param name="debugInterface"></param>
-        public MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY, int numDepth, Vector2 startCoords, IDrawInterface drawInterface, IHectorDebugInfo debugInterface)
+        public MapRepMultiMap(float mapResolution, Point mapSize, int numDepth, Vector2 startCoords)
         {
-            Point resolution = new Point(mapSizeX, mapSizeY);
-
-            float totalMapSizeX = mapResolution * mapSizeX;     // Meters
-            float mid_offset_x = totalMapSizeX * startCoords.X; // Meters
-
-            float totalMapSizeY = mapResolution * mapSizeY;
-            float mid_offset_y = totalMapSizeY * startCoords.Y;
-
-            mapContainers = new MapProcContainer[numDepth];
             parallelOptions = new ParallelOptions()
             {
                 MaxDegreeOfParallelism = numDepth
             };
 
+            // Create map
+            Maps = new OccGridMapBase[numDepth];
             for (int i = 0; i < numDepth; ++i)
             {
-                System.Diagnostics.Debug.WriteLine($"HectorSM map level {i}: cellLength: {mapResolution} res x: {resolution.X} res y: {resolution.Y}");
-                GridMap gridMap = new GridMap(mapResolution, resolution, new Vector2(mid_offset_x, mid_offset_y));
-                OccGridMapUtilConfig gridMapUtil = new OccGridMapUtilConfig(gridMap);
-                ScanMatcher scanMatcher = new ScanMatcher(drawInterface, debugInterface);
-
-                mapContainers[i] = new MapProcContainer(gridMap, gridMapUtil, scanMatcher);
+                Debug.WriteLine($"HectorSLAM map level #{i} resolution: {mapResolution} m/pix, size: {mapSize}");
+                Maps[i] = new OccGridMapBase(mapResolution, mapSize, startCoords);
 
                 // Decrease map accuracy - next level is half the pixel size of previous level
-                resolution = new Point(resolution.X / 2, resolution.Y / 2);
+                mapSize = new Point(mapSize.X / 2, mapSize.Y / 2);
                 mapResolution *= 2.0f;
             }
         }
 
+        /// <summary>
+        /// Reset maps
+        /// </summary>
         public void Reset()
         {
-            mapContainers.ForEach(m => m.Reset());
-        }
-
-        public GridMap GetGridMap(int mapLevel = 0)
-        {
-            return mapContainers[mapLevel].GridMap;
-        }
-
-        public void AddMapMutex(int i, IMapLocker mapMutex)
-        {
-            mapContainers[i].MapMutex = mapMutex;
-        }
-
-        public IMapLocker GetMapMutex(int i)
-        {
-            return mapContainers[i].MapMutex;
-        }
-
-        public void OnMapUpdated()
-        {
-            mapContainers.ForEach(m => m.ResetCachedData());
-        }
-
-        /// <summary>
-        /// Match data and get best position estimate
-        /// </summary>
-        /// <param name="beginEstimate">Estimation hint position in world coordinates (meters)</param>
-        /// <param name="scan">Scanned points</param>
-        /// <param name="covMatrix"></param>
-        /// <returns></returns>
-        public Vector3 MatchData(Vector3 beginEstimate, ScanCloud scan, out Matrix4x4 covMatrix)
-        {
-            Vector3 estimate = beginEstimate;
-            covMatrix = Matrix4x4.Identity; // It should not be returned
-
-            //System.Diagnostics.Debug.WriteLine($"  Match start at pose {tmp}");
-
-            // Start matching from coarsest map
-            for (int index = mapContainers.Length - 1; index >= 0; --index)
-            {
-                estimate = mapContainers[index].MatchData(estimate, scan, out covMatrix, (index == 0 ? 5 : 3));
-
-                //System.Diagnostics.Debug.WriteLine($"  Match level {index} pose {tmp}");
-            }
-
-            return estimate;
+            Maps.ForEach(m => m.Reset());
         }
 
         /// <summary>
         /// Update map layers
         /// </summary>
         /// <param name="scan">Scanned points</param>
-        /// <param name="robotPoseWorld">Robot pose in world coordinates (meters)</param>
-        public void UpdateByScan(ScanCloud scan, Vector3 robotPoseWorld)
+        /// <param name="pose">Lidar pose in world coordinates (meters)</param>
+        public void UpdateByScan(ScanCloud scan, Vector3 pose)
         {
-            // Run update in parallel tasks. It's about twice as fast on 6 core CPU.
-            Parallel.ForEach(mapContainers, parallelOptions, m => m.UpdateByScan(scan, robotPoseWorld));
+            // Run update in parallel tasks. It's about twice as fast on 6 core CPU as doing sequentially
+            Parallel.ForEach(Maps, parallelOptions, m => m.UpdateByScan(scan, pose));
         }
 
         /// <summary>
@@ -134,7 +83,7 @@ namespace HectorSLAM.Main
         /// <param name="factor">Factor from 0 to 1</param>
         public void SetUpdateFactorFree(float factor)
         {
-            mapContainers.ForEach(m => m.GridMap.SetUpdateFreeFactor(factor));
+            Maps.ForEach(m => m.UpdateFreeFactor = factor);
         }
 
         /// <summary>
@@ -143,7 +92,7 @@ namespace HectorSLAM.Main
         /// <param name="factor">Factor from 0 to 1</param>
         public void SetUpdateFactorOccupied(float factor)
         {
-            mapContainers.ForEach(m => m.GridMap.SetUpdateOccupiedFactor(factor));
+            Maps.ForEach(m => m.UpdateOccupiedFactor = factor);
         }
     }
 }

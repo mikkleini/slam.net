@@ -9,11 +9,21 @@ using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
 {
-    public class OccGridMapBase<T> : GridMapBase<T> where T : ICell
+    public class OccGridMapBase : GridMapBase
     {
-        protected int currUpdateIndex = 0;
-        protected int currMarkOccIndex = -1;
-        protected int currMarkFreeIndex = -1;
+        /// <summary>
+        /// Array used for caching data.
+        /// </summary>
+        private readonly CachedMapElement[] array = null;
+
+        // Variables
+        private int currCacheIndex = 0;
+        private int currUpdateIndex = 0;
+        private int currMarkOccIndex = -1;
+        private int currMarkFreeIndex = -1;
+
+        private float oddsOccupied = 0.9f;
+        private float oddsFree = 0.4f;
         private float logOddsOccupied; // The log odds representation of probability used for updating cells as occupied
         private float logOddsFree;     // The log odds representation of probability used for updating cells as free
 
@@ -26,31 +36,71 @@ namespace HectorSLAM.Map
         public OccGridMapBase(float mapResolution, Point size, Vector2 offset)
             : base(mapResolution, size, offset)
         {
-            SetUpdateFreeFactor(0.4f);
-            SetUpdateOccupiedFactor(0.9f);
-        }
-        
-        public void SetUpdateFreeFactor(float factor)
-        {
-            logOddsFree = ProbToLogOdds(factor);
+            // Create cache array
+            int length = size.X * size.Y;
+            array = new CachedMapElement[length];
+            for (int i = 0; i < length; ++i)
+            {
+                array[i].index = -1;
+            }
+
+            // Set logs
+            logOddsFree = ProbToLogOdds(oddsFree);
+            logOddsOccupied = ProbToLogOdds(oddsOccupied);
         }
 
-        public void SetUpdateOccupiedFactor(float factor)
+        /// <summary>
+        /// Cell "free" update factor
+        /// </summary>
+        public float UpdateFreeFactor
         {
-            logOddsOccupied = ProbToLogOdds(factor);
+            get => oddsFree;
+            set
+            {
+                oddsFree = value;
+                logOddsFree = ProbToLogOdds(oddsFree);
+            }
         }
 
+        /// <summary>
+        /// Cell "occupied" update factor
+        /// </summary>
+        public float UpdateOccupiedFactor
+        {
+            get => oddsOccupied;
+            set
+            {
+                oddsOccupied = value;
+                logOddsOccupied = ProbToLogOdds(oddsOccupied);
+            }
+        }
+
+        /// <summary>
+        /// Probability to logarithmic odds
+        /// </summary>
+        /// <param name="prob">Probability</param>
+        /// <returns>Logarithmic value</returns>
         private static float ProbToLogOdds(float prob)
         {
             float odds = prob / (1.0f - prob);
             return MathF.Log(odds);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetGridProbabilityMap(int index)
+        /// <summary>
+        /// Get cached probability of the cell
+        /// </summary>
+        /// <param name="index">Cell index</param>
+        /// <returns>Probability </returns>
+        public float GetCachedProbability(int index)
         {
-            float odds = MathF.Exp(mapArray[index].Value);
-            return odds / (odds + 1.0f);
+            if (array[index].index != currCacheIndex)
+            {
+                float odds = MathF.Exp(mapArray[index].Value);
+                array[index].value = odds / (odds + 1.0f);
+                array[index].index = currCacheIndex;
+            }
+
+            return array[index].value;
         }
 
         /// <summary>
@@ -87,11 +137,11 @@ namespace HectorSLAM.Map
                 }
             }
 
-            // Tell the map that it has been updated
-            SetUpdated();
-
             // Increase update index (used for updating grid cells only once per incoming scan)
             currUpdateIndex += 3;
+
+            // Invalidate previous cache
+            currCacheIndex++;
         }
 
         /// <summary>

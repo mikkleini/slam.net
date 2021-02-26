@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Numerics;
 using System.Text;
 using BaseSLAM;
@@ -10,85 +11,80 @@ using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
 {
-    public class HectorSLAMProcessor
+    public class HectorSLAMProcessor : IDisposable
     {
-        private readonly IDrawInterface drawInterface;
-        private readonly IHectorDebugInfo debugInterface;
+        private readonly ScanMatcher scanMatcher;
 
-        public MapRepMultiMap MapRep { get; protected set; }
-        public Vector3 LastMapUpdatePose { get; set; }
-        public Vector3 LastScanMatchPose { get; set; }
-        public Matrix4x4 LastScanMatchCov { get; protected set; }
-        public float MinDistanceDiffForMapUpdate { get; set; }
-        public float MinAngleDiffForMapUpdate { get; set; }
+        /// <summary>
+        /// Multi-level map
+        /// </summary>
+        public MapRepMultiMap MapRep { get; private set; }
 
-  
-        public GridMap GetGridMap(int mapLevel = 0)
-        {
-            return MapRep.GetGridMap(mapLevel);
-        }
+        /// <summary>
+        /// Last map updatep ose
+        /// </summary>
+        public Vector3 LastMapUpdatePose { get; private set; } = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
 
-        public void AddMapMutex(int i, IMapLocker mapMutex)
-        {
-            MapRep.AddMapMutex(i, mapMutex);
-        }
+        /// <summary>
+        /// Last scan match pose
+        /// </summary>
+        public Vector3 LastScanMatchPose { get; private set; }
 
-        public IMapLocker GetMapMutex(int i)
-        {
-            return MapRep.GetMapMutex(i);
-        }
+        /// <summary>
+        /// Average match timing in milliseconds
+        /// </summary>
+        public float MatchTiming { get; private set; }
 
-        public void SetUpdateFactorFree(float free_factor)
-        {
-            MapRep.SetUpdateFactorFree(free_factor);
-        }
+        /// <summary>
+        /// Average map update timing in milliseconds
+        /// </summary>
+        public float UpdateTiming { get; private set; }
 
-        public void SetUpdateFactorOccupied(float occupied_factor)
-        {
-            MapRep.SetUpdateFactorOccupied(occupied_factor);
-        }
+        /// <summary>
+        /// Distance difference (in meters) required for map update
+        /// </summary>
+        public float MinDistanceDiffForMapUpdate { get; set; } = 0.3f;
+
+        /// <summary>
+        /// Angular difference (in radians) required for map update
+        /// </summary>
+        public float MinAngleDiffForMapUpdate { get; set; } = 0.13f;
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="mapResolution">Meters per pixel</param>
-        /// <param name="mapSizeX">Size X in pixels</param>
-        /// <param name="mapSizeY">Size Y in pixels</param>
-        /// <param name="startCoords">Start coordinates as fraction of whole map size</param>
-        /// <param name="multiResSize"></param>
-        /// <param name="drawInterface"></param>
-        /// <param name="debugInterface"></param>
-        public HectorSLAMProcessor(float mapResolution, int mapSizeX, int mapSizeY, Vector2 startCoords, int multiResSize, IDrawInterface drawInterface = null, IHectorDebugInfo debugInterface = null)
+        /// <param name="mapSize">Map size in pixels</param>
+        /// <param name="startPose">Start pose (X and Y in meters, Z in degrees)</param>
+        /// <param name="numDepth">Number of maps</param>
+        /// <param name="numThreads">Number of processing threads</param>
+        public HectorSLAMProcessor(float mapResolution, Point mapSize, Vector3 startPose, int numDepth, int numThreads)
         {
-            this.drawInterface = drawInterface;
-            this.debugInterface = debugInterface;
+            MapRep = new MapRepMultiMap(mapResolution, mapSize, numDepth, Vector2.Zero);
+            scanMatcher = new ScanMatcher(numThreads);
 
-            MapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY, multiResSize, startCoords, drawInterface, debugInterface);
-
-            Reset();
-
-            MinDistanceDiffForMapUpdate = 0.3f * 1.0f;
-            MinAngleDiffForMapUpdate = 0.13f * 1.0f;
+            // Set initial poses
+            LastScanMatchPose = startPose;
         }
 
         /// <summary>
-        /// Update with new data
+        /// Update map with new scan data and search for the best pose estimate.
         /// </summary>
         /// <param name="scan">Scanned cloud points</param>
         /// <param name="poseHintWorld">Pose hint</param>
         /// <param name="mapWithoutMatching">Map without matching ?</param>
-        public void Update(ScanCloud scan, Vector3 poseHintWorld, bool mapWithoutMatching = false)
+        /// <returns>true if map was updated, false if not</returns>
+        public bool Update(ScanCloud scan, Vector3 poseHintWorld, bool mapWithoutMatching = false)
         {
-            //System.Diagnostics.Debug.WriteLine($"ph: {poseHintWorld}");
-
+            // Do position matching or not ?
             if (!mapWithoutMatching)
             {
-                Stopwatch w = new Stopwatch();
-                w.Start();                
-                LastScanMatchPose = MapRep.MatchData(poseHintWorld, scan, out Matrix4x4 lastScanMatchCov);
-                System.Diagnostics.Debug.WriteLine($"Match time: {w.ElapsedTicks}"); // 600-700, 1000
+                // Match and measure the performance
+                var watch = Stopwatch.StartNew();
+                LastScanMatchPose = scanMatcher.MatchData(MapRep, scan, poseHintWorld);
 
-                LastScanMatchCov = lastScanMatchCov;
+                // Calculate average timing
+                MatchTiming = (3.0f * MatchTiming + (float)watch.Elapsed.TotalMilliseconds) / 4.0f;
             }
             else
             {
@@ -96,34 +92,27 @@ namespace HectorSLAM.Main
             }
 
             // Update map(s) when:
+            //    Map hasn't been updated yet
             //    Position or rotation has changed significantly.
             //    Mapping is requested.
             if (Vector2.DistanceSquared(LastScanMatchPose.ToVector2(), LastMapUpdatePose.ToVector2()) > MinDistanceDiffForMapUpdate.Sqr() ||
                 (MathEx.DegDiff(LastScanMatchPose.Z, LastMapUpdatePose.Z) > MinAngleDiffForMapUpdate) ||
                 mapWithoutMatching)
             {
+                var watch = Stopwatch.StartNew();
                 MapRep.UpdateByScan(scan, LastScanMatchPose);
-                MapRep.OnMapUpdated();
+
+                // Calculate average timing
+                UpdateTiming = (3.0f * UpdateTiming + (float)watch.Elapsed.TotalMilliseconds) / 4.0f;
+
+                // Remember update pose
                 LastMapUpdatePose = LastScanMatchPose;
+
+                // Notify about update
+                return true;
             }
 
-            if (drawInterface != null)
-            {
-                GridMap gridMapRef = MapRep.GetGridMap(0);
-                drawInterface.SetColor(1.0, 0.0, 0.0);
-                drawInterface.SetScale(0.15);
-
-                drawInterface.DrawPoint(gridMapRef.GetWorldCoords(Vector2.Zero));
-                drawInterface.DrawPoint(gridMapRef.GetWorldCoords(gridMapRef.Dimensions.ToVector2()));
-                drawInterface.DrawPoint(new Vector2(1.0f, 1.0f));
-
-                drawInterface.SendAndResetData();
-            }
-
-            if (debugInterface != null)
-            {
-                debugInterface.SendAndResetData();
-            }
+            return false;
         }
 
         /// <summary>
@@ -131,10 +120,28 @@ namespace HectorSLAM.Main
         /// </summary>
         public void Reset()
         {
-            LastMapUpdatePose = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-            LastScanMatchPose = new Vector3(0.0f, 0.0f, 0.0f);
-
             MapRep.Reset();
+        }
+
+        /// <summary>
+        /// Dispose function
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Internal disposing function.
+        /// </summary>
+        /// <param name="disposing"></param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                scanMatcher.Dispose();
+            }
         }
     }
 }

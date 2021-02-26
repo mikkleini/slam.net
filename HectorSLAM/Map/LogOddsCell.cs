@@ -8,17 +8,17 @@ namespace HectorSLAM.Map
     /// <summary>
     /// Provides a log odds of occupancy probability representation for cells in a occupancy grid map.
     /// </summary>
-    public struct LogOddsCell : ICell
+    public struct LogOddsCell
     {
         /// <summary>
         /// Update index
         /// </summary>
-        public int UpdateIndex { get; set; }
+        public int UpdateIndex;
 
         /// <summary>
         /// The log odds representation of occupancy probability.
         /// </summary>
-        public float Value { get; set; }
+        public float Value;
 
         /// <summary>
         /// Returns whether the cell is occupied.

@@ -62,19 +62,16 @@ namespace Simulation
             startPos = new Vector2(20.0f, 20.0f);
             lidarPos = startPos;
 
-            coreSlam = new CoreSLAMProcessor(40.0f, 256, 64, new Vector3(lidarPos.X, lidarPos.Y, 0.0f), 4)
+            coreSlam = new CoreSLAMProcessor(40.0f, 256, 64, startPos.ToVector3(), 0.1f, MathEx.DegToRad(10), 1000, 4)
             {
-                HoleWidth = 2.0f,
-                SigmaXY = 1.0f
+                HoleWidth = 2.0f
             };
 
             holeMapBitmap = new WriteableBitmap(coreSlam.HoleMap.Size, coreSlam.HoleMap.Size, 96, 96, PixelFormats.Gray16, null);
 
             // Important tip: the robot movement speed cannot be greater than a coarsest map pixel per scan.
-            hectorSlam = new HectorSLAMProcessor(40.0f / 400, 400, 400, Vector2.Zero, 4)
+            hectorSlam = new HectorSLAMProcessor(40.0f / 400, new System.Drawing.Point(400, 400), startPos.ToVector3(), 5, 4)
             {
-                LastScanMatchPose = startPos.ToVector3(),
-                LastMapUpdatePose = startPos.ToVector3(),
                 MinDistanceDiffForMapUpdate = 0.4f,
                 MinAngleDiffForMapUpdate = 0.15f
             };
@@ -113,6 +110,7 @@ namespace Simulation
             drawTimer.Stop();
             lidarThread.Join();
             coreSlam.Dispose();
+            hectorSlam.Dispose();
         }
 
         /// <summary>
@@ -141,9 +139,6 @@ namespace Simulation
                 ScanSegments(lpos, coreSlam.Pose, out List<ScanSegment> scanSegments);
                 coreSlam.Update(scanSegments);
 
-                //Vector3 lhp = lpos.ToVector3();
-                Vector3 lhp = hectorSlam.LastScanMatchPose;
-
                 ScanCloud scanCloud = new ScanCloud()
                 {
                     Pose = Vector3.Zero
@@ -161,7 +156,8 @@ namespace Simulation
                     }
                 }
 
-                hectorSlam.Update(scanCloud, lhp, loops < 10);
+                hectorSlam.Update(scanCloud, hectorSlam.LastScanMatchPose, loops < 10);
+                Debug.WriteLine($"HectorSLAM match time: {hectorSlam.MatchTiming:f2}, update time: {hectorSlam.UpdateTiming:f2}");
 
                 // Ensure periodicity
                 Thread.Sleep((int)Math.Max(0, (long)scanPeriod - sw.ElapsedMilliseconds));
@@ -189,11 +185,11 @@ namespace Simulation
                 Height = coreSlam.PhysicalMapSize,
             };
 
-            //DrawArea.Children.Add(holeMapImage);
+            DrawArea.Children.Add(holeMapImage);
 
             // Construct occupancy map image
-            
-            var map = hectorSlam.MapRep.GetGridMap(0);
+
+            var map = hectorSlam.MapRep.Maps[0];
             int div = 1;
             
             var occupancyMapBitmap = new WriteableBitmap(map.Dimensions.X / div, map.Dimensions.Y / div, 96, 96, PixelFormats.Gray8, null);
@@ -206,7 +202,7 @@ namespace Simulation
                 {
                     Int32Rect pr = new Int32Rect(x, y, 1, 1);
                     byte[] data = new byte[1];
-                    ICell cell = map.GetCell(x * div, y * div);
+                    LogOddsCell cell = map.GetCell(x * div, y * div);
 
                     if (cell.IsFree)
                     {

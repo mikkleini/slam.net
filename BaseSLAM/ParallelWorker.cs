@@ -9,7 +9,8 @@ namespace BaseSLAM
 {
     /// <summary>
     /// Parallel worker.
-    /// This is like .NET Parallel.For function, except that threads are already created and it doesn't come with limitations of the Parallel.For and it's faster.
+    /// This is like .NET Parallel.For function, but it's faster.
+    /// In this case the threads are already created and it doesn't come with limitations of the Parallel.For.
     /// </summary>
     public class ParallelWorker : IDisposable
     {
