@@ -5,10 +5,10 @@ using System.Drawing;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using BaseSLAM;
 using HectorSLAM.Main;
 using HectorSLAM.Map;
-using HectorSLAM.Util;
 
 namespace HectorSLAM.Matcher
 {
@@ -17,14 +17,17 @@ namespace HectorSLAM.Matcher
     /// </summary>
     public class ScanMatcher : IDisposable
     {
+        private readonly ILogger logger;
         private readonly ParallelWorker worker;
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="numThreads">Number of calculation threads to use</param>
-        public ScanMatcher(int numThreads)
+        /// <param name="logger">Logging interface</param>
+        public ScanMatcher(int numThreads, ILogger logger = null)
         {
+            this.logger = logger;
             worker = new ParallelWorker(numThreads, "HectorSLAM estimator");
         }
 
@@ -38,18 +41,13 @@ namespace HectorSLAM.Matcher
         public Vector3 MatchData(MapRepMultiMap multiMap, ScanCloud scan, Vector3 hintPose)
         {
             Vector3 estimate = hintPose;
+            logger?.LogInformation($"Hint pose {hintPose.ToPoseString()}");
 
             // Start matching from coarsest map
             for (int index = multiMap.Maps.Length - 1; index >= 0; index--)
             {
                 estimate = MatchData(multiMap.Maps[index], scan, estimate);
-
-                // Report large estimate jumps
-                float distSqr = Vector2.DistanceSquared(estimate.ToVector2(), hintPose.ToVector2());
-                if (distSqr > 1.0f * 1.0f)
-                {
-                    Debug.WriteLine($"  Layer {index} estimate diff {Math.Sqrt(distSqr):f2} m from {hintPose} to {estimate}");
-                }
+                logger?.LogInformation($"Layer {index} estimate: {estimate.ToPoseString()}");
             }
 
             return estimate;
@@ -75,7 +73,7 @@ namespace HectorSLAM.Matcher
                 }
 
                 // Normalize Z rotation
-                estimate.Z = Util.Util.NormalizeAngle(estimate.Z);
+                estimate.Z = MathEx.NormalizeAngle(estimate.Z);
 
                 // Return world coordinates
                 return gridMap.GetWorldCoordsPose(estimate);
@@ -100,7 +98,7 @@ namespace HectorSLAM.Matcher
             {
                 if (!Matrix4x4.Invert(H, out Matrix4x4 iH))
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to calculate inverse matrix {H}");
+                    logger?.LogError($"Failed to calculate inverse matrix from {H}");
                     return false;
                 }
 
@@ -108,13 +106,14 @@ namespace HectorSLAM.Matcher
 
                 if (searchDir.Z > 0.2f)
                 {
+                    logger?.LogWarning($"SearchDir angle change ({MathEx.RadToDeg(searchDir.Z)}°) too large");
                     searchDir.Z = 0.2f;
-                    System.Diagnostics.Debug.WriteLine("SearchDir angle change too large");
+                    
                 }
                 else if (searchDir.Z < -0.2f)
                 {
+                    logger?.LogWarning($"SearchDir angle change ({MathEx.RadToDeg(searchDir.Z)}°) too large");
                     searchDir.Z = -0.2f;
-                    System.Diagnostics.Debug.WriteLine("SearchDir angle change too large");
                 }
 
                 estimate += searchDir;
@@ -138,8 +137,8 @@ namespace HectorSLAM.Matcher
             // Transformation of lidar measurements.
             // Translation is in pixels, need to convert it meters first.
             Matrix3x2 transform =
-                Matrix3x2.CreateTranslation(pose.X * gridMap.Properties.CellLength, pose.Y * gridMap.Properties.CellLength) *
                 Matrix3x2.CreateRotation(pose.Z) *
+                Matrix3x2.CreateTranslation(pose.X * gridMap.Properties.CellLength, pose.Y * gridMap.Properties.CellLength) *
                 Matrix3x2.CreateScale(gridMap.Properties.ScaleToMap);
 
             // Do the measurements scaling here, rather than wasting time in the rotDeriv calculation

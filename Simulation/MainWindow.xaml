@@ -5,14 +5,39 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Simulation"
         mc:Ignorable="d"
-        Title="SLAM.NET simulation (HectorSLAM)" Height="700" Width="700"
+        Title="SLAM.NET simulation" Height="800" Width="700"
         Closed="Window_Closed">
     <StackPanel Orientation="Vertical">
-        <ToolBar Height="30">
-            <TextBlock x:Name="RealPosLabel" Width="200" VerticalAlignment="Center">Real pos: -</TextBlock>
-            <TextBlock x:Name="EstimatedPosLabel" Width="200" VerticalAlignment="Center">Estimated pos: -</TextBlock>
+        <ToolBar>
             <Button x:Name="ResetButton" Click="ResetButton_Click">Reset</Button>
+            <Separator></Separator>
+            <Label>Visible SLAM:</Label>
+            <ComboBox x:Name="VisibleSLAMComboBox" SelectedIndex="1">
+                <ComboBoxItem>CoreSLAM</ComboBoxItem>
+                <ComboBoxItem>HectorSLAM</ComboBoxItem>
+            </ComboBox>
+            <Separator></Separator>
+            <Label>Visible HectorSLAM map layer:</Label>
+            <ComboBox x:Name="VisibleHectorSLAMLayerComboBox">
+            </ComboBox>
         </ToolBar>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="20"/>
+                <RowDefinition Height="20"/>
+                <RowDefinition Height="20"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center">Real pose:</TextBlock>
+            <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center">CoreSLAM pose:</TextBlock>
+            <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center">HectorSLAM pose:</TextBlock>
+            <TextBlock Grid.Column="1" Grid.Row="0" VerticalAlignment="Center" x:Name="RealPoseLabel">-</TextBlock>
+            <TextBlock Grid.Column="1" Grid.Row="1" VerticalAlignment="Center" x:Name="CoreSLAMPoseLabel">-</TextBlock>
+            <TextBlock Grid.Column="1" Grid.Row="2" VerticalAlignment="Center" x:Name="HectorSLAMPoseLabel">-</TextBlock>
+        </Grid>
         <Canvas x:Name="DrawArea"
             MouseMove="Field_MouseMove" MouseDown="Field_MouseDown" MouseWheel="Field_MouseWheel">
         </Canvas>

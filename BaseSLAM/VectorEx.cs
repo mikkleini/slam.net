@@ -152,6 +152,18 @@ namespace BaseSLAM
         }
 
         /// <summary>
+        /// Vector2 to Vector3
+        /// </summary>
+        /// <param name="vector">Vector2</param>
+        /// <param name="z">Z parameter</param>
+        /// <returns>Vector3</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 ToVector3(this Vector2 vector, float z)
+        {
+            return new Vector3(vector.X, vector.Y, z);
+        }
+
+        /// <summary>
         /// Vector2 to Point with flooring
         /// </summary>
         /// <param name="vector">Vector3</param>
@@ -171,6 +183,17 @@ namespace BaseSLAM
         public static Point ToRoundPoint(this Vector2 vector)
         {
             return new Point((int)MathF.Round(vector.X), (int)MathF.Round(vector.Y));
+        }
+
+        /// <summary>
+        /// Vector3 as pose to string
+        /// </summary>
+        /// <param name="pose"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string ToPoseString(this Vector3 pose)
+        {
+            return $"{pose.X:f2}m x {pose.Y:f2}m @ {MathEx.RadToDeg(pose.Z):f2}°";
         }
     }
 }

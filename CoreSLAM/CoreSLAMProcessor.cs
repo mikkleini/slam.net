@@ -743,6 +743,7 @@ namespace CoreSLAM
             }
 
             lastOdometryPose = odoPose;
+            newPose.Z = MathEx.NormalizeAngle(newPose.Z);
             Pose = newPose;
 
             // Update maps

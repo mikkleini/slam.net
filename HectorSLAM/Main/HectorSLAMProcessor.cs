@@ -4,15 +4,19 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Numerics;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using BaseSLAM;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
-using HectorSLAM.Util;
 
 namespace HectorSLAM.Main
 {
+    /// <summary>
+    /// Hector SLAM processor
+    /// </summary>
     public class HectorSLAMProcessor : IDisposable
     {
+        private readonly ILogger logger;
         private readonly Vector3 startPose;
         private readonly ScanMatcher scanMatcher;
 
@@ -29,7 +33,7 @@ namespace HectorSLAM.Main
         /// <summary>
         /// Last scan match pose
         /// </summary>
-        public Vector3 LastScanMatchPose { get; private set; }
+        public Vector3 MatchPose { get; private set; }
 
         /// <summary>
         /// Average match timing in milliseconds
@@ -59,14 +63,16 @@ namespace HectorSLAM.Main
         /// <param name="startPose">Start pose (X and Y in meters, Z in degrees)</param>
         /// <param name="numDepth">Number of maps</param>
         /// <param name="numThreads">Number of processing threads</param>
-        public HectorSLAMProcessor(float mapResolution, Point mapSize, Vector3 startPose, int numDepth, int numThreads)
+        public HectorSLAMProcessor(float mapResolution, Point mapSize, Vector3 startPose, int numDepth, int numThreads, ILogger logger = null)
         {
-            MapRep = new MapRepMultiMap(mapResolution, mapSize, numDepth, Vector2.Zero);
-            scanMatcher = new ScanMatcher(numThreads);
+            this.logger = logger;
             this.startPose = startPose;
 
+            MapRep = new MapRepMultiMap(mapResolution, mapSize, numDepth, Vector2.Zero);
+            scanMatcher = new ScanMatcher(numThreads, logger);
+
             // Set initial poses
-            LastScanMatchPose = startPose;
+            MatchPose = startPose;
             LastMapUpdatePose = new Vector3(float.MinValue, float.MinValue, float.MinValue);
         }
 
@@ -84,34 +90,35 @@ namespace HectorSLAM.Main
             {
                 // Match and measure the performance
                 var watch = Stopwatch.StartNew();
-                LastScanMatchPose = scanMatcher.MatchData(MapRep, scan, poseHintWorld);
+                MatchPose = scanMatcher.MatchData(MapRep, scan, poseHintWorld);
 
                 // Calculate average timing
                 MatchTiming = (3.0f * MatchTiming + (float)watch.Elapsed.TotalMilliseconds) / 4.0f;
             }
             else
             {
-                LastScanMatchPose = poseHintWorld;
+                MatchPose = poseHintWorld;
             }
 
             // Update map(s) when:
             //    Map hasn't been updated yet
             //    Position or rotation has changed significantly.
             //    Mapping is requested.
-            if (Vector2.DistanceSquared(LastScanMatchPose.ToVector2(), LastMapUpdatePose.ToVector2()) > MinDistanceDiffForMapUpdate.Sqr() ||
-                (MathEx.DegDiff(LastScanMatchPose.Z, LastMapUpdatePose.Z) > MinAngleDiffForMapUpdate) ||
+            if (Vector2.DistanceSquared(MatchPose.ToVector2(), LastMapUpdatePose.ToVector2()) > MinDistanceDiffForMapUpdate.Sqr() ||
+                (MathEx.DegDiff(MatchPose.Z, LastMapUpdatePose.Z) > MinAngleDiffForMapUpdate) ||
                 mapWithoutMatching)
             {
                 var watch = Stopwatch.StartNew();
-                MapRep.UpdateByScan(scan, LastScanMatchPose);
+                MapRep.UpdateByScan(scan, MatchPose);
 
                 // Calculate average timing
                 UpdateTiming = (3.0f * UpdateTiming + (float)watch.Elapsed.TotalMilliseconds) / 4.0f;
 
                 // Remember update pose
-                LastMapUpdatePose = LastScanMatchPose;
+                LastMapUpdatePose = MatchPose;
 
                 // Notify about update
+                logger?.LogInformation($"Map update at {MatchPose.ToPoseString()}");
                 return true;
             }
 
@@ -126,7 +133,7 @@ namespace HectorSLAM.Main
             MapRep.Reset();
 
             // Set initial poses
-            LastScanMatchPose = startPose;
+            MatchPose = startPose;
             LastMapUpdatePose = new Vector3(float.MinValue, float.MinValue, float.MinValue);
         }
 

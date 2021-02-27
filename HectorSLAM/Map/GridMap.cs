@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Numerics;
 using System.Drawing;
-using BaseSLAM;
-using HectorSLAM.Util;
 using System.Runtime.CompilerServices;
+using BaseSLAM;
 
 namespace HectorSLAM.Map
 {
@@ -83,6 +82,25 @@ namespace HectorSLAM.Map
         public LogOddsCell GetCell(int index)
         {
             return mapArray[index];
+        }
+
+        /// <summary>
+        /// Get map as grayscale bitmap data.
+        /// The data is array with size of Dimensions.X * Dimensions.Y
+        /// Byte value 127 means area is unscanned, 0 means it's occupied, 254 means it's free.
+        /// </summary>
+        /// <returns>Bitmap bytes</returns>
+        public byte[] GetBitmapData()
+        {
+            byte[] data = new byte[mapArray.Length];
+
+            for (int i = 0; i < mapArray.Length; i++)
+            {
+                // Avoid branching here for max performance
+                data[i] = (byte)(127 - MathF.Sign(mapArray[i].Value) * 127);
+            }
+
+            return data;
         }
 
         /// <summary>

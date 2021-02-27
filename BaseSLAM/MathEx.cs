@@ -107,5 +107,34 @@ namespace BaseSLAM
         {
             return val * val;
         }
+
+        /// <summary>
+        /// Normalize angle in radians. Results in positive angle (between 0 and 2 * PI)
+        /// </summary>
+        /// <param name="angle">Input angle in radians</param>
+        /// <returns>Normalized angle in positive radians (0 to 2 * PI)</returns>
+        private static float NormalizeAnglePos(float angle)
+        {
+            float pi2 = MathF.PI * 2.0f;
+
+            return ((angle % pi2) + pi2) % pi2;
+        }
+
+        /// <summary>
+        /// Normalize angle in radians.
+        /// </summary>
+        /// <param name="angle">Input angle in radians</param>
+        /// <returns>Normalized angle in between -PI to +PI</returns>
+        public static float NormalizeAngle(float angle)
+        {
+            float a = NormalizeAnglePos(angle);
+
+            if (a > MathF.PI)
+            {
+                a -= 2.0f * MathF.PI;
+            }
+
+            return a;
+        }
     }
 }

@@ -5,7 +5,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using BaseSLAM;
-using HectorSLAM.Util;
 
 namespace HectorSLAM.Map
 {
@@ -49,7 +48,7 @@ namespace HectorSLAM.Map
         }
 
         /// <summary>
-        /// Estimates iterations per match.
+        /// Estimates iterations per match (used by ScanMatcher)
         /// </summary>
         public int EstimateIterations { get; set; } = 3;
 
@@ -119,8 +118,8 @@ namespace HectorSLAM.Map
 
             // Get a 2D homogenous transform that can be left-multiplied to a robot coordinates vector to get world coordinates of that vector
             Matrix3x2 poseTransform =
-                Matrix3x2.CreateTranslation(robotPoseWorld.X, robotPoseWorld.Y) *  // Translate position
                 Matrix3x2.CreateRotation(robotPoseWorld.Z) *                       // Rotate                
+                Matrix3x2.CreateTranslation(robotPoseWorld.X, robotPoseWorld.Y) *  // Translate position
                 Matrix3x2.CreateScale(Properties.ScaleToMap);                      // Meters to pixels
 
             // Get start point of all laser beams

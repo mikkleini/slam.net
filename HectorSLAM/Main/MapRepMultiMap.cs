@@ -5,12 +5,11 @@ using System.Numerics;
 using System.Text;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics;
 using BaseSLAM;
 using HectorSLAM.Map;
 using HectorSLAM.Matcher;
-using HectorSLAM.Util;
-using System.Threading.Tasks;
-using System.Diagnostics;
 
 namespace HectorSLAM.Main
 {
