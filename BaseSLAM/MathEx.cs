@@ -136,5 +136,19 @@ namespace BaseSLAM
 
             return a;
         }
+
+        /// <summary>
+        /// Polar coordinates to cartesian coordinates
+        /// </summary>
+        /// <param name="radius">Radius</param>
+        /// <param name="angle">Angle in radians</param>
+        /// <returns>Cartersian coordinates</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector2 PolarToCartesian(float radius, float angle)
+        {
+            return new Vector2(
+                radius * MathF.Cos(angle),
+                radius * MathF.Sin(angle));
+        }
     }
 }

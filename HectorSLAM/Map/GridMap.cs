@@ -74,6 +74,17 @@ namespace HectorSLAM.Map
         }
 
         /// <summary>
+        /// Get cell by point
+        /// </summary>
+        /// <param name="point">Cell point</param>
+        /// <returns>Cell</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public LogOddsCell GetCell(Point point)
+        {
+            return mapArray[point.Y * Dimensions.X + point.X];
+        }
+
+        /// <summary>
         /// Get cell by index
         /// </summary>
         /// <param name="index">Arry index</param>

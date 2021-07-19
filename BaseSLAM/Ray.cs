@@ -12,12 +12,12 @@ namespace BaseSLAM
         /// <summary>
         /// Angle in radians
         /// </summary>
-        public float Angle { get; set; }
+        public float Angle { get; }
 
         /// <summary>
         /// Radius in meters
         /// </summary>
-        public float Radius { get; set; }
+        public float Radius { get; }
 
         /// <summary>
         /// Constructor

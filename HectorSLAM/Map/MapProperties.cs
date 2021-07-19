@@ -12,9 +12,9 @@ namespace HectorSLAM.Map
     public record MapProperties
     {
         /// <summary>
-        /// Cell length in meters per pixel
+        /// Physical size of the map in meters
         /// </summary>
-        public float CellLength { get; init; }
+        public Vector2 PhysicalSize { get; }
 
         /// <summary>
         /// Map dimensions in pixels
@@ -22,9 +22,9 @@ namespace HectorSLAM.Map
         public Point Dimensions { get; init; }
 
         /// <summary>
-        /// Top-left offset of map in meters
+        /// Cell length in meters per pixel
         /// </summary>
-        public Vector2 Offset { get; init; }
+        public float CellLength { get; init; }
 
         /// <summary>
         /// Scale of the map in pixels per meter (inverse of CellLength)
@@ -32,14 +32,14 @@ namespace HectorSLAM.Map
         public float ScaleToMap => 1.0f / CellLength;
 
         /// <summary>
+        /// Top-left offset of map in meters
+        /// </summary>
+        public Vector2 Offset { get; init; }
+
+        /// <summary>
         /// Map limits in meters
         /// </summary>
         public Vector2 Limits => new Vector2(Dimensions.X - 2.0f, Dimensions.Y - 2.0f); // TODO Where does the -2 come from ?
-
-        /// <summary>
-        /// Physical size of the map in meters
-        /// </summary>
-        public Vector2 PhysicalSize { get; }
 
         /// <summary>
         /// Constructor

@@ -15,16 +15,16 @@ namespace BaseSLAM
         /// <summary>
         /// Scan rays
         /// </summary>
-        public List<Ray> Rays { get; set; } = new List<Ray>();
+        public List<Ray> Rays { get; init; } = new List<Ray>();
 
         /// <summary>
-        /// Pose at the moment of scanning
+        /// Origin of rays
         /// </summary>
-        public Vector3 Pose { get; set; }
+        public Vector3 Pose { get; init; }
 
         /// <summary>
         /// Is it last segment of the full 360 degrees scan ?
         /// </summary>
-        public bool IsLast { get; set; }
+        public bool IsLast { get; init; }
     }
 }

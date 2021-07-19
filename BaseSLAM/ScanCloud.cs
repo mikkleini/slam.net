@@ -12,11 +12,11 @@ namespace BaseSLAM
         /// <summary>
         /// Pose at the moment of scanning
         /// </summary>
-        public Vector3 Pose { get; set; } = Vector3.Zero;
+        public Vector3 Pose { get; init; } = Vector3.Zero;
 
         /// <summary>
         /// Scan points
         /// </summary>
-        public List<Vector2> Points { get; } = new List<Vector2>();
+        public List<Vector2> Points { get; init; } = new List<Vector2>();
     }
 }
