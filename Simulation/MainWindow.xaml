@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Simulation"
         mc:Ignorable="d"
-        Title="SLAM.NET simulation" Height="800" Width="700"
+        Title="SLAM.NET simulation" Height="760" Width="654"
         Closed="Window_Closed">
     <StackPanel Orientation="Vertical">
         <ToolBar>

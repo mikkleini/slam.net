@@ -236,6 +236,7 @@ namespace Simulation
                     };
 
                     DrawArea.Children.Add(holeMapImage);
+                    VisibleHectorSLAMLayerComboBox.IsEnabled = false;
                     break;
 
                 // HectorSLAM ?
@@ -255,6 +256,7 @@ namespace Simulation
                     };
 
                     DrawArea.Children.Add(occMapImage);
+                    VisibleHectorSLAMLayerComboBox.IsEnabled = true;
                     break;
             }
 
