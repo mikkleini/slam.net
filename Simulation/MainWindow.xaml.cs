@@ -33,7 +33,7 @@ namespace Simulation
     {
         // Constnts
         private const int numScanPoints = 400;     // Scan points per revolution
-        private const float scanPerSecond = 17.0f;  // Scan / second
+        private const float scanPerSecond = 17.0f; // Scan / second
         private const float maxScanDist = 40.0f;   // Meters
         private const float measureError = 0.02f;  // Meters
         private const int scanPeriod = (int)(1000.0 / scanPerSecond); // Milliseconds
@@ -262,8 +262,8 @@ namespace Simulation
             DrawField();
 
             // Draw poses
-            DrawPose(lidarPose, 0.2f, Colors.Blue);
-            DrawPose(coreSlam.Pose, 0.2f, Colors.Red);
+            DrawPose(lidarPose, 0.2f, Colors.Red);
+            DrawPose(coreSlam.Pose, 0.2f, Colors.Blue);
             DrawPose(hectorSlam.MatchPose, 0.2f, Colors.Green);
 
             // Update labels
@@ -415,6 +415,11 @@ namespace Simulation
             {
                 UpdateLidarPosition(e.GetPosition(DrawArea));
             }
+
+            if (e.RightButton == MouseButtonState.Pressed)
+            {
+                UpdateLidarViewDirection(e.GetPosition(DrawArea));
+            }
         }
 
         /// <summary>
@@ -428,24 +433,33 @@ namespace Simulation
             {
                 UpdateLidarPosition(e.GetPosition(DrawArea));
             }
+            
+            if (e.RightButton == MouseButtonState.Pressed)
+            {
+                UpdateLidarViewDirection(e.GetPosition(DrawArea));
+            }
         }
 
         /// <summary>
         /// Update lidar position
         /// </summary>
-        /// <param name="p"></param>
+        /// <param name="p">New position point</param>
         private void UpdateLidarPosition(Point p)
         {
             var newLidarPos = new Vector2((float)p.X, (float)p.Y);
-            if (newLidarPos != lidarPose.ToVector2())
-            {
-                // Smooth angle change
-                Vector2 diff = newLidarPos - lidarPose.ToVector2();
-                float angle = MathF.Atan2(diff.Y, diff.X);
-                float maxChange = MathEx.DegToRad(5.0f);
-                angle = lidarPose.Z + MathEx.Limit(MathEx.RadDiff(angle, lidarPose.Z), -maxChange, +maxChange);
-                lidarPose = newLidarPos.ToVector3(MathEx.NormalizeAngle(angle));
-            }
+            lidarPose = new Vector3(newLidarPos, lidarPose.Z);
+        }
+
+        /// <summary>
+        /// Update lidar view direction
+        /// </summary>
+        /// <param name="p">New view direction</param>
+        private void UpdateLidarViewDirection(Point p)
+        {
+            var dirPos = new Vector2((float)p.X, (float)p.Y);
+            Vector2 diff = dirPos - lidarPose.ToVector2();
+            float angle = MathF.Atan2(diff.Y, diff.X);
+            lidarPose = new Vector3(lidarPose.ToVector2(), angle);
         }
 
         /// <summary>

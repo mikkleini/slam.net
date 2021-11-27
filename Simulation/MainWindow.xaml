@@ -31,9 +31,9 @@
                 <RowDefinition Height="20"/>
                 <RowDefinition Height="20"/>
             </Grid.RowDefinitions>
-            <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center">Real pose:</TextBlock>
-            <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center">CoreSLAM pose:</TextBlock>
-            <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center">HectorSLAM pose:</TextBlock>
+            <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center" Foreground="Red">Real pose:</TextBlock>
+            <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center" Foreground="Blue">CoreSLAM pose:</TextBlock>
+            <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center" Foreground="Green">HectorSLAM pose:</TextBlock>
             <TextBlock Grid.Column="1" Grid.Row="0" VerticalAlignment="Center" x:Name="RealPoseLabel">-</TextBlock>
             <TextBlock Grid.Column="1" Grid.Row="1" VerticalAlignment="Center" x:Name="CoreSLAMPoseLabel">-</TextBlock>
             <TextBlock Grid.Column="1" Grid.Row="2" VerticalAlignment="Center" x:Name="HectorSLAMPoseLabel">-</TextBlock>
